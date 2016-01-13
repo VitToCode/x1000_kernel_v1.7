@@ -413,7 +413,7 @@ static int codec_init(void)
 	akm4753 = dev->platform_data;
 
 	/* reset PDN pin */
-	if (akm4753->pdn){
+	if (akm4753->pdn->gpio != -1){
 		gpio_set_value(akm4753->pdn->gpio, akm4753->pdn->active_level);
 		mdelay(20);
 		gpio_set_value(akm4753->pdn->gpio, !akm4753->pdn->active_level);
@@ -500,6 +500,34 @@ static int codec_resume(void)
 	return 0;
 }
 
+static int codec_shutdown(void)
+{
+	int ret = 0;
+	unsigned char data;
+	struct device *dev;
+	struct akm4753_platform_data *akm4753;
+
+	if (akm4753_client == NULL){
+		printk("The i2c is not register, akm4753 can't init\n");
+		return -1;
+	}
+	dev = &akm4753_client->dev;
+	akm4753 = dev->platform_data;
+
+	gpio_disable_spk_en();
+	mdelay(3);
+
+	akm4753_i2c_read_reg(0x04, &data, 1);
+	data = 0x0;
+	ret |= akm4753_i2c_write_regs(0x04, &data, 1);
+
+	if (akm4753->pdn->gpio != -1){
+		gpio_set_value(akm4753->pdn->gpio, akm4753->pdn->active_level);
+	}
+
+	return 0;
+}
+
 static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -514,6 +542,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SHUTDOWN:
+			ret = codec_shutdown();
 			break;
 
 		case CODEC_RESET:
@@ -545,8 +574,10 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_RECORD_RATE:
-			/* Because record and replay i2s use the same BCLK and SYNC pin */
-			*(unsigned long*)arg = user_replay_rate;
+			/*
+			 * Record sample rate is follow the replay sample rate. Here set is invalid.
+			 * Because record and replay i2s use the same BCLK and SYNC pin.
+			*/
 			break;
 
 		case CODEC_SET_REPLAY_DATA_WIDTH:
@@ -630,7 +661,7 @@ static int __devinit akm4753_i2c_probe(struct i2c_client *client, const struct i
                 return ret;
 	}
 
-	if (akm4753->pdn) {
+	if (akm4753->pdn->gpio != -1) {
 		ret = gpio_request_one(akm4753->pdn->gpio,
 				GPIOF_DIR_OUT, "akm4753-pdn");
 		if (ret != 0) {
@@ -651,7 +682,7 @@ static int __devexit akm4753_i2c_remove(struct i2c_client *client)
         struct device *dev = &client->dev;
         struct akm4753_platform_data *akm4753 = dev->platform_data;
 
-	if (akm4753->pdn)
+	if (akm4753->pdn->gpio != -1)
 		gpio_free(akm4753->pdn->gpio);
 
         akm4753_client = NULL;

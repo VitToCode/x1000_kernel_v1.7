@@ -229,7 +229,6 @@ static int codec_set_replay_rate(unsigned long *rate)
 		0, 1, 2, 9, 5,
 		7, 10,11,15
 	};
-
 	for (i = 0; i < 9; i++) {
 		if (*rate == mrate[i])
 			break;
@@ -387,7 +386,7 @@ static int codec_init(void)
 	akm4951 = dev->platform_data;
 
 	/* reset PDN pin */
-	if (akm4951->pdn){
+	if (akm4951->pdn->gpio != -1){
 		gpio_set_value(akm4951->pdn->gpio, akm4951->pdn->active_level);
 		mdelay(20);
 		gpio_set_value(akm4951->pdn->gpio, !akm4951->pdn->active_level);
@@ -493,12 +492,13 @@ static int codec_shutdown(void)
 	akm4951 = dev->platform_data;
 
 	gpio_disable_spk_en();
+	mdelay(3);
 
 	akm4951_i2c_read_reg(0x01, &data, 1);
 	data &= 0xfb;
 	ret |= akm4951_i2c_write_regs(0x01, &data, 1);
 
-	if (akm4951->pdn){
+	if (akm4951->pdn->gpio != -1){
 		gpio_set_value(akm4951->pdn->gpio, akm4951->pdn->active_level);
 	}
 
@@ -555,8 +555,10 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_RECORD_RATE:
-			/* Because record and replay i2s use the same BCLK and SYNC pin */
-			*(unsigned long*)arg = user_replay_rate;
+			/*
+			 * Record sample rate is follow the replay sample rate. Here set is invalid.
+			 * Because record and replay i2s use the same BCLK and SYNC pin.
+			*/
 			break;
 
 		case CODEC_SET_REPLAY_DATA_WIDTH:
@@ -640,7 +642,7 @@ static int __devinit akm4951_i2c_probe(struct i2c_client *client, const struct i
                 return ret;
 	}
 
-	if (akm4951->pdn) {
+	if (akm4951->pdn->gpio != -1){
 		ret = gpio_request_one(akm4951->pdn->gpio,
 				GPIOF_DIR_OUT, "akm4951-pdn");
 		if (ret != 0) {
@@ -661,7 +663,7 @@ static int __devexit akm4951_i2c_remove(struct i2c_client *client)
         struct device *dev = &client->dev;
         struct akm4951_platform_data *akm4951 = dev->platform_data;
 
-	if (akm4951->pdn)
+	if (akm4951->pdn->gpio != -1)
 		gpio_free(akm4951->pdn->gpio);
 
         akm4951_client = NULL;

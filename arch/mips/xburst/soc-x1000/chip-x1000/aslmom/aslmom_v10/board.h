@@ -79,7 +79,7 @@
 #define HOOK_ACTIVE_LEVEL       -1
 
 #ifdef CONFIG_AKM4951_EXTERNAL_CODEC
-#define GPIO_AKM4951_PDN                GPIO_PB(27)       /* AKM4951 PDN pin */
+#define GPIO_AKM4951_PDN                -1	       /* AKM4951 PDN pin */
 #define GPIO_AKM4951_SPEAKER_EN         GPIO_PD(2)       /* amp shutdown pin */
 #define GPIO_AKM4951_SPEAKER_EN_LEVEL   1
 #define GPIO_AKM4951_AMP_POWER_EN       -1              /* amp power enable pin */
