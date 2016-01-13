@@ -64,7 +64,7 @@ static int volume_key = 0;
 static int first_report = 0;
 static int press_time = 0;
 static int play_flag = 0;
-#define PRESS_TIMES 150 
+#define PRESS_TIMES 180
 static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
@@ -75,24 +75,29 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 		volume_key = 0;
 		key_change = 0;
 		first_report = 0;
-		if(play_flag){
-			if(press_time >= PRESS_TIMES) //long_press 3s
-				play_value = KEY_F7;
-			else if(press_time >= 2)
+		if (play_flag) {
+			if (press_time >= 2 && press_time < PRESS_TIMES) {
 				play_value = KEY_PLAYPAUSE;
-			play_flag = 0;
-			press_time = 0;
-			if(play_value ){
-				input_event(pdata->input,EV_KEY,play_value,1);	
+				input_event(pdata->input,EV_KEY,play_value,1);
 				input_sync(pdata->input);	
-				input_event(pdata->input,EV_KEY,play_value,0);	
+				input_event(pdata->input,EV_KEY,play_value,0);
 				input_sync(pdata->input);
 			}
-		}			
+			play_flag = 0;
+			press_time = 0;
+		}
 
 	}else if(pdata->data < 0x100){
-		if(pdata->data == 1){
+		if (pdata->data == 1) {
+			/* long_press 3s */
 			press_time++;
+			if (press_time == PRESS_TIMES) {
+				play_value = KEY_F7;
+				input_event(pdata->input,EV_KEY, play_value, 1);
+				input_sync(pdata->input);
+				input_event(pdata->input,EV_KEY, play_value, 0);
+				input_sync(pdata->input);
+			}
 			play_flag = 1;
 			return ;
 		}
