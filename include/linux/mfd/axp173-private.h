@@ -153,6 +153,7 @@
 #define AC_ADC_EN_C                             (1<<4)
 #define USB_ADC_EN_V                            (1<<3)
 #define USB_ADC_EN_C                            (1<<2)
+#define APS_ADC_EN_V                            (1<<1)
 #define ADC_SPEED_BIT1                          (1<<7)
 #define ADC_SPEED_BIT2                          (1<<6)
 #define INT1_AC_IN                              (1<<6)
@@ -168,6 +169,9 @@
 #define INT2_BATTERY_LOW_TEMP			(1<<0)
 #define INT3_SHORTPRESS_PEK			(1<<1)
 #define INT3_LONGPRESS_PEK			(1<<0)
+#define INT3_LOWVOLTAGE_WARNING			(1<<4)
+#define INT4_LOWVOLTAGE_WARNING1		(1<<1)
+#define INT4_LOWVOLTAGE_WARNING2		(1<<0)
 #define INT5_TIMER                              (1<<7)
 
 #define AC_IN                                   (1<<7)
@@ -177,6 +181,8 @@
 #define AC_AVAILABLE                            (1<<6)
 #define USB_AVAILABLE                           (1<<4)
 #define CHARGE_ENABLE                           (1<<7)
+#define CHARGE_DISABLE                          (~(1<<7))
+#define VBUS_CHARGE_DISABLE                     (~(1<<0))
 
 #define VSEL_MASK   0
 #define ADC_TS_OUT(x)				(x<<4)

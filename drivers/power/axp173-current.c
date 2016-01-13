@@ -13,6 +13,10 @@
 #include <linux/earlysuspend.h>
 #include <linux/pm.h>
 
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+#define GPIO_BOOST 	GPIO_PB(5)
+#endif
+
 static int temp_key = 0;
 
 #ifdef CONFIG_AXP173_CHARGER_DEBUG
@@ -178,6 +182,30 @@ static void axp173_charger_write_reg(struct i2c_client *client,
 	if (ret < 0)
 		dev_warn(&client->dev, "%s reg %d write error\n",
 			 __func__, reg);
+}
+
+static int axp173_disable_charge(struct axp173_charger *charger)
+{
+	unsigned char temp;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_CHARGE1, &temp);
+	temp &= 0x7f;
+	axp173_charger_write_reg(client, POWER_CHARGE1, temp);
+
+	return 0;
+}
+
+static int axp173_enable_charge(struct axp173_charger *charger)
+{
+	unsigned char temp;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_CHARGE1, &temp);
+	temp |= 0x80;
+	axp173_charger_write_reg(client, POWER_CHARGE1, temp);
+
+	return 0;
 }
 
 static void axp173_clr_coulomb(struct axp173_charger *charger)
@@ -551,10 +579,10 @@ static int axp173_set_poweroff_time(struct axp173_charger *charger)
 #endif
 static void axp173_battery_set_aps_warning(struct axp173_charger *charger)
 {
-        struct i2c_client *client = charger->axp173->client;
+	struct i2c_client *client = charger->axp173->client;
+	unsigned char tmp;
 
-        axp173_charger_write_reg(client, POWER_APS_WARNING1, 0);/* set Vwarning 2.8672v */
-        axp173_charger_write_reg(client, POWER_APS_WARNING2, 0);
+	axp173_charger_write_reg(client, POWER_APS_WARNING1, 0xa7);/* set Vwarning1 3.8v */
 }
 #endif
 
@@ -586,12 +614,14 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 						 POWER_CHARGE1, temp);
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 			axp173_forbid_pwroff_by_pmu(charger);
+			axp173_enable_charge(charger);
 #endif
 			break;
 		case INT1_AC_OUT:
 			charger->ac_online = 0;
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 			axp173_enable_pwroff_by_pmu(charger);
+			axp173_disable_charge(charger);
 #endif
 			break;
 		case INT1_USB_IN:
@@ -676,6 +706,20 @@ static void axp173_charger_work_int3(struct axp173_charger *charger,
 static void axp173_charger_work_int4(struct axp173_charger *charger,
 				     unsigned char src)
 {
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	unsigned char i = 0;
+
+	for (; i < 8; ++i) {
+		switch (src & (1<<i)) {
+		case INT4_LOWVOLTAGE_WARNING1:
+			printk("======================>:open boost!!\n");
+			gpio_direction_output(GPIO_BOOST, 1);
+			break;
+		default:
+			break;
+		}
+	}
+#endif
 }
 
 static void axp173_charger_work_int5(struct axp173_charger *charger,
@@ -752,10 +796,12 @@ static int __devinit axp173_charger_initialize(struct axp173_charger *charger)
 
 #ifdef CONFIG_AXP173_BAT_TEMP_DET
 	adc_en1 = BAT_ADC_EN_V | BAT_ADC_EN_C | AC_ADC_EN_V |
-			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C | TS_ADC_EN;
+			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C |
+			APS_ADC_EN_V | TS_ADC_EN;
 #else
 	adc_en1 = BAT_ADC_EN_V | BAT_ADC_EN_C | AC_ADC_EN_V |
-			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C;
+			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C |
+			APS_ADC_EN_V;
 #endif
 	axp173_charger_write_reg(client, POWER_ADC_EN1, adc_en1);
 #ifdef CONFIG_AXP173_BAT_TEMP_DET
@@ -776,6 +822,10 @@ static int __devinit axp173_charger_initialize(struct axp173_charger *charger)
 	int2 = INT2_BATTERY_IN | INT2_BATTERY_OUT |
 			INT2_BATTERY_CHARGING | INT2_BATTERY_CHARGED;
 #endif
+
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	int4 = INT4_LOWVOLTAGE_WARNING1 | INT4_LOWVOLTAGE_WARNING2;
+#endif
 	axp173_charger_write_reg(client, POWER_INTEN2, int2);
 	axp173_charger_write_reg(client, POWER_INTEN3, int3);
 	axp173_charger_write_reg(client, POWER_INTEN4, int4);
@@ -793,6 +843,7 @@ axp173_charger_late_initialize(struct axp173_charger *charger)
 	return 0;
 }
 
+
 static int axp173_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -800,6 +851,9 @@ static int axp173_battery_get_property(struct power_supply *psy,
 	int ret = 0;
 	struct axp173_charger *charger =
 		container_of(psy, struct axp173_charger, battery);
+
+	struct i2c_client *client = charger->axp173->client;
+	unsigned char temp;
 
 	mutex_lock(&charger->lock);
 	switch (psp) {
@@ -827,6 +881,19 @@ static int axp173_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_battery_cacpacity(charger);
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		int tmp;
+		if (charger->battery_online) {
+			tmp = axp173_get_adc_data(charger,
+							BAT_VOL, 0);
+		} else
+			tmp = 0;
+		/* close boost */
+		if(tmp > 3800) {
+			gpio_direction_output(GPIO_BOOST, 0);
+			printk("==================>close boost!\n");
+		}
+#endif
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (charger->battery_online) {
@@ -1243,6 +1310,11 @@ static int __devinit axp173_charger_probe(struct platform_device *pdev)
 		goto pwr_reg_err;
 	}
 	axp173_charger_callback(charger);
+
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	gpio_request(GPIO_BOOST, "boost");
+	axp173_disable_charge(charger);
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	charger->early_suspend.suspend = axp173_charger_early_suspend;

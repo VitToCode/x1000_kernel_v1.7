@@ -79,7 +79,7 @@
 #define HOOK_ACTIVE_LEVEL       -1
 
 #ifdef CONFIG_AKM4951_EXTERNAL_CODEC
-#define GPIO_AKM4951_PDN                GPIO_PB(5)       /* AKM4951 PDN pin */
+#define GPIO_AKM4951_PDN                GPIO_PB(27)       /* AKM4951 PDN pin */
 #define GPIO_AKM4951_SPEAKER_EN         GPIO_PD(2)       /* amp shutdown pin */
 #define GPIO_AKM4951_SPEAKER_EN_LEVEL   1
 #define GPIO_AKM4951_AMP_POWER_EN       -1              /* amp power enable pin */
@@ -100,7 +100,7 @@
 #define GPIO_LCD_PWM    GPIO_PC(24)
 #endif
 #ifdef  CONFIG_LCD_FRD240A3602B
-#define GPIO_LCD_RD     GPIO_PB(16)
+#define GPIO_LCD_RD     -1
 #define GPIO_LCD_CS     GPIO_PB(18)
 #define GPIO_LCD_RST    GPIO_PB(19)
 //#define GPIO_BL_PWR_EN  GPIO_PC(24)
