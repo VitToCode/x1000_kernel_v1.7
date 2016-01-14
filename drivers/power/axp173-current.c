@@ -889,7 +889,7 @@ static int axp173_battery_get_property(struct power_supply *psy,
 		} else
 			tmp = 0;
 		/* close boost */
-		if(tmp > 3800) {
+		if(__gpio_get_value(GPIO_BOOST) && (tmp > 3800)) {
 			gpio_direction_output(GPIO_BOOST, 0);
 			printk("==================>close boost!\n");
 		}
