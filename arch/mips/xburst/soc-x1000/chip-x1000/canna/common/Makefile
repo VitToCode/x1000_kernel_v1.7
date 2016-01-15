@@ -15,4 +15,7 @@ obj-$(CONFIG_I2C_GPIO)			+= i2c_bus.o
 obj-$(CONFIG_I2C0_V12_JZ)		+= i2c_bus.o
 obj-$(CONFIG_I2C1_V12_JZ)		+= i2c_bus.o
 obj-$(CONFIG_I2C2_V12_JZ)		+= i2c_bus.o
+ifeq ($(CONFIG_SSV6XXX), m)
+	obj-y				+= ssv6051_wlan_power_control.o
+endif
 obj-y += lcd/
