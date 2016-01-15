@@ -69,7 +69,7 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
 	int flags;
-	int play_value = 0;;
+	int play_value = 0;
 	if(pdata->data == 0){
 		key_press = 0;
 		volume_key = 0;
@@ -113,12 +113,14 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 			key_press = 1;
 			key = pdata->data;
 			for(i = 1;i < 6;i++){
-				key_value = key_table[i].value;
-				input_event(pdata->input,EV_KEY,key_table[i].value,1);	
-				input_sync(pdata->input);	
-				input_event(pdata->input,EV_KEY,key_table[i].value,0);	
-				input_sync(pdata->input);
-				break;
+				if (key_table[i].key == key) {
+					key_value = key_table[i].value;
+					input_event(pdata->input,EV_KEY,key_table[i].value,1);
+					input_sync(pdata->input);
+					input_event(pdata->input,EV_KEY,key_table[i].value,0);
+					input_sync(pdata->input);
+					break;
+				}
 			}
 		}
 	}else if(pdata->data < 0xb00){
@@ -217,7 +219,9 @@ static int tm57pe20a_gpio_init(struct tm57pe20a_touch_data *pdata)
 		pdata->pdata->sda = -EBUSY;
 		return -1;
 	}
+
 	gpio_set_pull(pdata->pdata->sda,1);
+	gpio_set_pull(pdata->pdata->sclk,1);
 
 	return 0;
 }
