@@ -28,10 +28,23 @@
 #include <mach/jzsnd.h>
 #include "../xb47xx_i2s_v13.h"
 
+/* It is the codec LRCLK rate. You can change it refer to the board design.*/
 #define VIRUAL_I2S_CODEC_SAMPLE_RATE 48000
 
-//#define CODEC_MODE  CODEC_SLAVE
+#if 0
+#define CODEC_MODE  CODEC_SLAVE
+#define VIRUAL_EXTERNAL_CODEC_CLOCK  (VIRUAL_I2S_CODEC_SAMPLE_RATE * 256)
+
+#else
+/* Some external codec need a sysclk to work.
+ * You can change the VIRUAL_EXTERNAL_CODEC_CLOCK value refer to the codec need.
+ * But if it's not 24000000, the x1000's DMIC record will be error,
+ * such as the record speed maybe fast or slow.
+*/
 #define CODEC_MODE  CODEC_MASTER
+#define VIRUAL_EXTERNAL_CODEC_CLOCK    24000000
+
+#endif
 
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 
@@ -176,7 +189,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 /**
  * Module init
  */
-#define VIRUAL_EXTERNAL_CODEC_CLOCK  (VIRUAL_I2S_CODEC_SAMPLE_RATE * 256)
 static int __init init_codec(void)
 {
 	int ret = 0;
