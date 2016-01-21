@@ -145,7 +145,7 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 #endif
 
 /* Battery Info */
-#if defined CONFIG_JZ_CURRENT_BATTERY && defined CONFIG_MFD_AXP173_SADC
+#if defined CONFIG_MFD_AXP173_SADC
 struct jz_current_battery_info aslmom_battery_pdata = {
 	.max_vol = 4200,
 	.min_vol = 3250,

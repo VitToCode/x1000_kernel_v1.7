@@ -202,7 +202,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&fp8102_det,0,0),
 #endif
 
-#if defined CONFIG_MFD_AXP173_SADC && defined CONFIG_JZ_CURRENT_BATTERY
+#if defined CONFIG_MFD_AXP173_SADC
 	DEF_DEVICE(&axp173_adc_device, &adc_platform_data, sizeof(struct axp173_adc_platform_data)),
 #endif
 

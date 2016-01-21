@@ -948,7 +948,7 @@ struct platform_device jz_efuse_device = {
 };
 #endif
 
-#if defined CONFIG_MFD_AXP173_SADC && defined CONFIG_JZ_CURRENT_BATTERY
+#if defined CONFIG_MFD_AXP173_SADC
 struct platform_device axp173_adc_device = {
         .name   = "axp173-adc",
         .id     = -1,

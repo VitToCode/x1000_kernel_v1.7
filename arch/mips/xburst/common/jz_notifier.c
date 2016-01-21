@@ -2,6 +2,7 @@
 
 static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain_high);
 static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain_normal);
+static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain_low);
 static int jz_notifier(struct notifier_block *nb, unsigned long cmd, void *data)
 {
 	struct jz_notifier *jz_nb = container_of(nb,struct jz_notifier,nb);
@@ -41,6 +42,8 @@ int jz_notifier_register(struct jz_notifier *notify, unsigned int priority)
 		ret = blocking_notifier_chain_register(&jz_notifier_chain_high, &notify->nb);
 	else if(priority == NOTEFY_PROI_NORMAL)
 		ret = blocking_notifier_chain_register(&jz_notifier_chain_normal, &notify->nb);
+	else if(priority == NOTEFY_PROI_LOW)
+		ret = blocking_notifier_chain_register(&jz_notifier_chain_low, &notify->nb);
 	else
 		printk("not support\n");
 	return ret;
@@ -54,6 +57,8 @@ int jz_notifier_unregister(struct jz_notifier *notify, unsigned int priority)
 		ret = blocking_notifier_chain_unregister(&jz_notifier_chain_high, &notify->nb);
 	else if(priority == NOTEFY_PROI_NORMAL)
 		ret = blocking_notifier_chain_unregister(&jz_notifier_chain_normal, &notify->nb);
+	else if(priority == NOTEFY_PROI_LOW)
+		ret = blocking_notifier_chain_unregister(&jz_notifier_chain_low, &notify->nb);
 	else
 		printk("not support\n");
 	return ret;
@@ -66,6 +71,8 @@ int jz_notifier_call(unsigned int priority, unsigned long val, void *v)
 		ret = blocking_notifier_call_chain(&jz_notifier_chain_high, val, v);
 	else if(priority == NOTEFY_PROI_NORMAL)
 		ret = blocking_notifier_call_chain(&jz_notifier_chain_normal, val, v);
+	else if(priority == NOTEFY_PROI_LOW)
+		ret = blocking_notifier_call_chain(&jz_notifier_chain_low, val, v);
 	else
 		printk("not support\n");
 	return ret;

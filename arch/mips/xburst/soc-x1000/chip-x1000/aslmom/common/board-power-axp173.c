@@ -53,6 +53,11 @@ EXCLUSIVE_REGULATOR_DEF(
         NULL,   	3300000,        1);
 #endif
 EXCLUSIVE_REGULATOR_DEF(
+	vldo4,
+	"Vldo4",       "vldo4",		NULL,
+	NULL,   	3500000,        1);
+
+EXCLUSIVE_REGULATOR_DEF(
         vpower,
         "Vpower",       "vpower",	NULL,
         NULL,   	3300000,        0);
@@ -67,6 +72,7 @@ EXCLUSIVE_REGULATOR_DEF(
 static struct regulator_info pmu_regulators[] = {
 //	{"DC2", &trunk_vcore_init_data},
 //	{"LDO2", &vldo2_init_data},
+	{"LDO4", &vldo4_init_data},
 	{"POWER", &vpower_init_data},
 };
 

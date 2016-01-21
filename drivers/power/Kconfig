@@ -43,6 +43,12 @@ config JZ_CURRENT_BATTERY
 	  Say Y to enable support for the current method battery on Ingenic
 	  based boards.
 
+config ASLMOM_BATTERY_VOLTAGE
+	tristate "Ingenic voltage method battery for aslmom"
+	depends on MFD_AXP173_SADC
+	help
+	  Say Y to enable support for the voltage method battery on aslmom boards.
+
 config BATTERY_JZ4780
 	tristate "Ingenic JZ4780 battery"
 	depends on MFD_JZ4780_SADC
@@ -114,6 +120,13 @@ config AXP173_CHARGER
         help
           Say Y here to enable support for the battery charger in the
           PMU AXP173.
+
+config ASLMOM_BATTERY_POWER_DET
+        depends on MFD_AXP173
+        select ASLMOM_BATTERY_VOLTAGE
+	tristate "AXP173 batttery power detect for aslmom"
+	help
+	  Say Y to enable support for axp173 batttery power detect on aslmom boards.
 
 config AXP173_CHARGER_DEBUG
         bool "AXP173 CHARGER Debug"

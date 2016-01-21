@@ -26,6 +26,9 @@
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <mach/jzsnd.h>
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+#include <jz_notifier.h>
+#endif
 #include "../xb47xx_i2s_v13.h"
 
 #define DEFAULT_REPLAY_SAMPLE_RATE   44100
@@ -304,8 +307,12 @@ static int codec_set_device(enum snd_device_t device)
 			data |= 0xf;
 			akm4951_i2c_write_regs(0x06, &data, 1);
 			msleep(5);
-			if (user_replay_volume != 0)
+			if (user_replay_volume != 0) {
 				gpio_enable_spk_en();
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
+#endif
+			}
 			break;
 		default:
 			printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
@@ -433,12 +440,18 @@ static int codec_set_replay_volume(int *val)
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
 		gpio_enable_spk_en();
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, val);
+#endif
 	} else{
 		/* Digital Volume mute */
 		data = 0xff;
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
 		gpio_disable_spk_en();
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		jz_notifier_call(NOTEFY_PROI_LOW, JZ_POST_HIBERNATION, NULL);
+#endif
 	}
 	return *val;
 }
@@ -514,8 +527,12 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_TURN_OFF:
-			if (user_linein_state == 0)
+			if (user_linein_state == 0) {
 				gpio_disable_spk_en();
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				jz_notifier_call(NOTEFY_PROI_LOW, JZ_POST_HIBERNATION, NULL);
+#endif
+			}
 			break;
 
 		case CODEC_SHUTDOWN:
@@ -534,8 +551,12 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_ANTI_POP:
-			if (user_replay_volume != 0)
+			if (user_replay_volume != 0) {
 				gpio_enable_spk_en();
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
+#endif
+			}
 			break;
 
 		case CODEC_SET_DEFROUTE:
