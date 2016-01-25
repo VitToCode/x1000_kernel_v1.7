@@ -157,15 +157,33 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 	case AFMT_S16_LE:
 		data_width = 16;
 		if (mode & CODEC_WMODE) {
+			__spdif_clear_signn();
 			__spdif_set_max_wl(0);
 			__spdif_set_oss_sample_size(1);
 		}
 		break;
-	case AFMT_S16_BE:
+	case AFMT_U16_LE:
 		data_width = 16;
 		if (mode & CODEC_WMODE) {
+			__spdif_set_signn();
 			__spdif_set_max_wl(0);
 			__spdif_set_oss_sample_size(1);
+		}
+		break;
+	case AFMT_U24_LE:
+		data_width = 24;
+		if (mode & CODEC_WMODE) {
+			__spdif_set_signn();
+			__spdif_set_max_wl(1);
+			__spdif_set_oss_sample_size(5);
+		}
+		break;
+	case AFMT_S24_LE:
+		data_width = 24;
+		if (mode & CODEC_WMODE) {
+			__spdif_clear_signn();
+			__spdif_set_max_wl(1);
+			__spdif_set_oss_sample_size(5);
 		}
 		break;
 	default :
@@ -177,7 +195,11 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 
 	if (mode & CODEC_WMODE) {
 		dp = cur_codec_spdif->dsp_endpoints->out_endpoint;
-		dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		if(data_width == 16)
+			dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		else if(data_width == 24)
+			dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+
 		if (cur_codec_spdif->replay_format != *format) {
 			cur_codec_spdif->replay_format = *format;
 			ret |= NEED_RECONF_TRIGGER;
@@ -185,7 +207,7 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 		}
 	}
 	if (mode & CODEC_RMODE) {
-		printk("SPDIF: unsurpport rcord!\n");
+		printk("SPDIF: unsupport record!\n");
 		ret = -1;
 	}
 
