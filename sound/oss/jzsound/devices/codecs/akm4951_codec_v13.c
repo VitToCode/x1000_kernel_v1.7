@@ -310,6 +310,7 @@ static int codec_set_device(enum snd_device_t device)
 			if (user_replay_volume != 0) {
 				gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
@@ -435,12 +436,18 @@ static int codec_set_replay_volume(int *val)
 
 	user_replay_volume = *val;
 	if (*val) {
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		/* use 0dB ~ -40dB */
+		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 24;
+#else
 		/* use 0dB ~ -50dB */
 		data = 100 - *val + 24;
+#endif
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
 		gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		/* This is only for aslmom board battery power detection */
 		jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, val);
 #endif
 	} else{
@@ -530,6 +537,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			if (user_linein_state == 0) {
 				gpio_disable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_LOW, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
@@ -554,6 +562,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			if (user_replay_volume != 0) {
 				gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
