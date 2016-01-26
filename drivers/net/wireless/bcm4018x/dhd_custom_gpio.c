@@ -56,8 +56,8 @@ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 #endif /* CUSTOMER_HW2 */
-extern int IW8101_wlan_power_off(int flag);
-extern int IW8101_wlan_power_on(int flag);
+extern  void bcm_wlan_power_off(int);
+extern  void bcm_wlan_power_on(int);
 
 #if defined(OOB_INTR_ONLY)
 
@@ -137,7 +137,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			wifi_set_power(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
-			IW8101_wlan_power_off(RESET);
+			//IW8101_wlan_power_off(RESET);
+			bcm_wlan_power_off(RESET);
 		break;
 
 		case WLAN_RESET_ON:
@@ -150,7 +151,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			wifi_set_power(1, 0);
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
-            IW8101_wlan_power_on(RESET);
+			//IW8101_wlan_power_on(RESET);
+			bcm_wlan_power_on(RESET);
 		break;
 
 		case WLAN_POWER_OFF:
@@ -159,7 +161,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(1);
 #endif /* CUSTOMER_HW */
-			IW8101_wlan_power_off(NORMAL);
+			//IW8101_wlan_power_off(NORMAL);
+			bcm_wlan_power_off(NORMAL);
 		break;
 
 		case WLAN_POWER_ON:
@@ -170,7 +173,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			/* Lets customer power to get stable */
 			OSL_DELAY(200);
 #endif /* CUSTOMER_HW */
-			IW8101_wlan_power_on(NORMAL);
+			//IW8101_wlan_power_on(NORMAL);
+			bcm_wlan_power_on(NORMAL);
 			OSL_DELAY(300);
 		break;
 	}

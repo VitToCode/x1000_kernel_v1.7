@@ -9,6 +9,11 @@
 
 #include "board.h"
 
+#ifdef CONFIG_BCM4018X
+int bcm_ap6181_wlan_init(void);
+int bcm_ap6181_manual_sysfs_init(struct device *dev);
+#endif
+
 #ifdef CONFIG_BCMDHD_1_141_66
 int bcm_ap6212_wlan_init(void);
 int bcm_ap6212_manual_sysfs_init(struct device *dev);
@@ -60,6 +65,10 @@ struct jzmmc_platform_data sdio_pdata = {
 	.pio_mode                       = 1,
 #else
 	.pio_mode                       = 0,
+#endif
+#ifdef CONFIG_BCM4018X
+	.private_init			= bcm_ap6181_wlan_init,
+	.manual_sysfs_init              = bcm_ap6181_manual_sysfs_init,
 #endif
 #ifdef CONFIG_BCMDHD_1_141_66
 	.private_init			= bcm_ap6212_wlan_init,
