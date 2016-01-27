@@ -43,7 +43,11 @@
 #include "jz_fb.h"
 #include "regs.h"
 #ifdef CONFIG_LOGO_BMP
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+#include "logo_bmp_aslmom.h"
+#else
 #include "logo_bmp.h"
+#endif
 #endif
 
 static void dump_lcdc_registers(struct jzfb *jzfb);

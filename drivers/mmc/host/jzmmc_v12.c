@@ -1848,8 +1848,10 @@ static void jzmmc_shutdown(struct platform_device *pdev)
 		if(host->pdata->type == NONREMOVABLE || host->pdata->removal == NONREMOVABLE ){
 			gpio_direction_output(card_gpio->rst.num, 0);
 		}
+#if 0
 		else
 			mmc_remove_host(host->mmc);
+#endif
 	}
 
 }
