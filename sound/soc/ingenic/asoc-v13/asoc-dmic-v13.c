@@ -313,8 +313,12 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 	jz_dmic->rx_dma_data.dma_addr = (dma_addr_t)jz_dmic->res_start + DMICDR;
 
 	jz_dmic->vcc_dmic = regulator_get(&pdev->dev,"vcc_dmic");
+#ifndef CONFIG_SND_ASOC_INGENIC_CANNA_ICDC 
 	regulator_enable(jz_dmic->vcc_dmic);
 	jz_dmic->vcc_en = 1;
+#else
+	jz_dmic->vcc_en = 0;
+#endif
 	platform_set_drvdata(pdev, (void *)jz_dmic);
 
 	for (; i < ARRAY_SIZE(jz_dmic_sysfs_attrs); i++) {
