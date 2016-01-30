@@ -217,7 +217,6 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 static int spdif_set_rate(unsigned long *rate,int mode)
 {
 	int ret = 0;
-	unsigned long ori_rate = *rate;
 	if (!cur_codec_spdif)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
@@ -238,7 +237,7 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 		/*to reflesh the I2SCDR1.I2SDIV_D to equal to I2SCDR.I2SDIV_N /2 */
 		audio_write(0,I2SCDR1_PRE);
 
-		__spdif_set_ori_sample_freq(ori_rate);
+		__spdif_set_ori_sample_freq(*rate);
 		__spdif_set_sample_freq(*rate);
 		__i2s_start_bitclk();
 
@@ -604,8 +603,9 @@ static long spdif_ioctl(unsigned int cmd, unsigned long arg)
 
 
 	case SND_DSP_SET_REPLAY_CHANNELS:
-		/* set replay channels */
+		/* set replay channels, spdif only support stereo now. */
 		ret = 0;
+		*(unsigned long *)arg = 2;
 		break;
 
 	case SND_DSP_SET_RECORD_CHANNELS:

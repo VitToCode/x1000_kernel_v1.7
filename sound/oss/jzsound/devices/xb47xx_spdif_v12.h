@@ -281,21 +281,32 @@ static inline unsigned long  __spdif_set_transmit_trigger(int n)
 
 static inline unsigned long  __spdif_set_sample_freq(unsigned long sync)
 {
-	int div = 0;;
-	switch(sync) {
-		case 44100: div = 0x0;
-			break;
-		case 48000: div = 0x2;
-			break;
-		case 32000: div = 0x3;
-			break;
-		case 96000: div = 0xa;
-			break;
-		case 192000: div = 0xe;
-			break;
-		default : div = 0;
-			break;
-	}
+	int div = 0;
+        switch(sync) {
+                case 8000: div = 0x9;
+                        break;
+                case 11025: div = 0x5;
+                        break;
+                case 16000: div = 0x7;
+                        break;
+                case 22050: div = 0x4;
+                        break;
+                case 24000: div = 0x6;
+                        break;
+                case 32000: div = 0x3;
+                        break;
+                case 44100: div = 0x0;
+                        break;
+                case 48000: div = 0x2;
+                        break;
+                case 96000: div = 0xa;
+                        break;
+                case 192000: div = 0xe;
+                        break;
+                default :
+                        div = 0;
+                        break;
+        }
 	spdif_set_reg(SPCFG2,div,SPDIF_FS_MASK,SPDIF_FS_OFFSET);
 
 	return div;
@@ -303,21 +314,32 @@ static inline unsigned long  __spdif_set_sample_freq(unsigned long sync)
 
 static inline unsigned long  __spdif_set_ori_sample_freq(unsigned long sync)
 {
-	int div = 0;;
-	switch(sync) {
-		case 44100: div = 0xf;
-			break;
-		case 48000: div = 0xd;
-			break;
-		case 32000: div = 0xc;
-			break;
-		case 96000: div = 0x5;
-			break;
-		case 192000: div = 0x1;
-			break;
-		default : div = 0;
-			break;
-	}
+	int div = 0;
+        switch(sync) {
+		case 8000: div = 0x6;
+                        break;
+                case 11025: div = 0xa;
+                        break;
+                case 16000: div = 0x8;
+                        break;
+                case 22050: div = 0xb;
+                        break;
+                case 24000: div = 0x9;
+                        break;
+                case 32000: div = 0xc;
+                        break;
+                case 44100: div = 0xf;
+                        break;
+                case 48000: div = 0xd;
+                        break;
+                case 96000: div = 0x5;
+                        break;
+                case 192000: div = 0x1;
+                        break;
+                default :
+                        div = 0xf;
+                        break;
+        }
 	spdif_set_reg(SPCFG2,div,SPDIF_ORGFRQ_MASK,SPDIF_ORGFRQ_OFFSET);
 
 	return div;
