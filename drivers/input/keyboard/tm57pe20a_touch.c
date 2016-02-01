@@ -22,7 +22,6 @@
 unsigned short key = 0;
 int key_press = 0;
 unsigned int key_value = 0;
-int key_flag = 0;
 static struct workqueue_struct *tm57pe20a_wq;
 struct tm57pe20a_touch_platform_data {
 	int intr;
@@ -38,7 +37,6 @@ struct tm57pe20a_touch_data {
 	int sclk_irq;
 	int irq_times;
 	unsigned short data;
-	unsigned short tmp_data;
 	unsigned short key_press;
 	spinlock_t lock;
 };
@@ -55,62 +53,101 @@ struct tm57pe20a_key key_table[] = {
 	{0x20,KEY_PREVIOUSSONG},
 	{0x100,KEY_VOLUMEUP},
 	{0xa00,KEY_VOLUMEDOWN},
-	{0x40,KEY_F7},
+	{~(u16)0,KEY_F7},
+	{~(u16)0,KEY_F12},
 };
-static int  press_count = 0;
+static int press_count = 0;
 static int key_change = 0;
-static int key_count = 0;
 static int volume_key = 0;
 static int first_report = 0;
+
+#define PRESS_TIMES 180
 static int press_time = 0;
 static int play_flag = 0;
-#define PRESS_TIMES 180
+
+static int multi_flag = 0;
+
 static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
-	int flags;
-	int play_value = 0;
+
 	if(pdata->data == 0){
 		key_press = 0;
+		press_count = 0;
+
 		volume_key = 0;
 		key_change = 0;
 		first_report = 0;
+
+		printk(KERN_DEBUG "multi_flag: %d\n", multi_flag);
+		printk(KERN_DEBUG "play_flag: %d\n", play_flag);
+		printk(KERN_DEBUG "press_time: %d\n", press_time);
+
 		if (play_flag) {
 			if (press_time >= 2 && press_time < PRESS_TIMES) {
-				play_value = KEY_PLAYPAUSE;
-				input_event(pdata->input,EV_KEY,play_value,1);
-				input_sync(pdata->input);	
-				input_event(pdata->input,EV_KEY,play_value,0);
+				key = KEY_PLAYPAUSE;
+				input_event(pdata->input, EV_KEY, key, 1);
+				input_sync(pdata->input);
+				input_event(pdata->input, EV_KEY, key, 0);
 				input_sync(pdata->input);
 			}
 			play_flag = 0;
 			press_time = 0;
 		}
 
-	}else if(pdata->data < 0x100){
+		if (multi_flag) {
+			key = KEY_F12;
+			input_event(pdata->input, EV_KEY, key, 0);
+			input_sync(pdata->input);
+
+			multi_flag = 0;
+		}
+	}else if((pdata->data & 0xFF) &&
+		!(pdata->data & (0xFF << 8))){ /* Key value low byte */
 		if (pdata->data == 1) {
 			/* long_press 3s */
 			press_time++;
 			if (press_time == PRESS_TIMES) {
-				play_value = KEY_F7;
-				input_event(pdata->input,EV_KEY, play_value, 1);
+				key = KEY_F7;
+				input_event(pdata->input, EV_KEY, key, 1);
 				input_sync(pdata->input);
-				input_event(pdata->input,EV_KEY, play_value, 0);
+				input_event(pdata->input, EV_KEY, key, 0);
 				input_sync(pdata->input);
 			}
+
 			play_flag = 1;
-			return ;
 		}
+
+		if(play_flag == 1) {
+			press_count = 0;
+			return 0;
+		}
+
+		if ((pdata->data & (4 | 8)) == (4 | 8)) {
+			if (!multi_flag) {
+				key = KEY_F12;
+				input_event(pdata->input,EV_KEY, key, 1);
+				input_sync(pdata->input);
+			}
+			multi_flag = 1;
+		}
+
+		if (multi_flag) {
+			press_count = 0;
+			return 0;
+		}
+
+		if (press_count < 6) {
+			press_count++;
+			return 0;
+		}
+
 		if(!key_press){
-			if(play_flag == 1)
-				return;
+			key_press = 1;
+
 			key_change = 0;
 			volume_key = 0;
-			press_count++;
-			if(press_count < 1)
-				return ;
-			press_count = 0;
-			key_press = 1;
+
 			key = pdata->data;
 			for(i = 1;i < 6;i++){
 				if (key_table[i].key == key) {
@@ -123,7 +160,7 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 				}
 			}
 		}
-	}else if(pdata->data < 0xb00){
+	}else if(pdata->data & (0xFF << 8)){ /* Key value hign byte */
 		pdata->data = pdata->data >> 8;
 		if(!volume_key){
 			volume_key = pdata->data;
@@ -143,7 +180,7 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 					first_report = 0;
 					return 0;
 				}
-		//	printk("222.volume_key= %d,pdata->data = %d\n",volume_key,pdata->data);
+//			printk("222.volume_key= %d,pdata->data = %d\n",volume_key,pdata->data);
 				if (volume_key <  pdata->data){
 					key_value = KEY_VOLUMEDOWN;
 					if((volume_key == 1 || volume_key == 2 || volume_key == 3)&& (pdata->data == 10 || pdata->data == 9 ||pdata->data == 8)){
@@ -160,24 +197,27 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 				input_event(pdata->input,EV_KEY,key_value,0);
 				input_sync(pdata->input);
 				volume_key = pdata->data;
-			}else 
+			}else
 				key_change = 0;
 		}
 		key_press = 1;
 	}
+
+	return 0;
 }
 static void tm57pe20a_touch_work_func(struct work_struct *work)
 {
 	struct tm57pe20a_touch_data *pdata ;
 	pdata = container_of(work, struct tm57pe20a_touch_data, work);
-	report_key(pdata);	
+	report_key(pdata);
 }
 
 static irqreturn_t tm57pe20a_sclk_irq_handler(int irq, void *dev_id)
 {
 	struct tm57pe20a_touch_data *pdata = dev_id;
-	pdata->irq_times++;
 	unsigned char bit;
+
+	pdata->irq_times++;
 	bit = __gpio_get_value(pdata->pdata->sda);
 	pdata->data = (pdata->data << 1) | bit;
 	if(pdata->irq_times == 16){
@@ -185,7 +225,7 @@ static irqreturn_t tm57pe20a_sclk_irq_handler(int irq, void *dev_id)
 		udelay(1500);
 //		printk("===>pdata->data = 0x%x\n",pdata->data);
 		disable_irq_nosync(pdata->sclk_irq);
-	//	schedule_work(&pdata->work);
+//		schedule_work(&pdata->work);
 		report_key(pdata);
 		enable_irq(pdata->irq);
 	}
@@ -207,7 +247,7 @@ static int tm57pe20a_gpio_init(struct tm57pe20a_touch_data *pdata)
 		pdata->pdata->intr = -EBUSY;
 		return -1;
 	}
-	
+
 	if (gpio_request_one(pdata->pdata->sclk,GPIOF_DIR_IN,"tm57pe20a_sclk")) {
 		printk("no tm57pe20a_sclk pin available\n");
 		pdata->pdata->sclk = -EBUSY;
@@ -229,8 +269,9 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 {
 	struct tm57pe20a_touch_data *tm_data;
 	struct device *dev = &pdev->dev;
+	int i;
 	int error;
-	int irq;
+
 	tm_data = kzalloc(sizeof(struct tm57pe20a_touch_data),GFP_KERNEL);
 	if(tm_data == NULL){
 		dev_err(dev, "failed to allocate state\n");
@@ -253,7 +294,7 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 	tm_data->input->id.product = 0x0001;
 	tm_data->input->id.version = 0x0100;
 	__set_bit(EV_KEY, tm_data->input->evbit);
-	int i;
+
 	for(i = 0;i < sizeof(key_table) / sizeof(key_table[0]);i++)
 		input_set_capability(tm_data->input,EV_KEY,key_table[i].value);
 
@@ -275,7 +316,6 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 	tm_data->irq = gpio_to_irq(tm_data->pdata->intr);
 	tm_data->irq_times = 0;
 	tm_data->data = 0;
-	tm_data->tmp_data = 0;
 	error = request_irq(tm_data->irq, tm57pe20a_touch_irq_handler,
 			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			tm_data->input->name,tm_data);
@@ -285,20 +325,27 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 		return error;
 	}
 
+	/* Need sclk irq requested, then enable */
+	disable_irq(tm_data->irq);
+
 	tm_data->sclk_irq = gpio_to_irq(tm_data->pdata->sclk);
-	
+
 	error = request_irq(tm_data->sclk_irq, tm57pe20a_sclk_irq_handler,
 			IRQF_TRIGGER_RISING |IRQF_DISABLED,
 			tm_data->input->name,tm_data);
-	
+
 	if (error != 0) {
 		dev_err(dev, "request irq is error\n");
 		return error;
 	}
 	disable_irq(tm_data->sclk_irq);
+
+	enable_irq(tm_data->irq);
+
 	return 0;
 fail:
 	printk("tm57pe20a probe failed!!!\n");
+	return -1;
 }
 
 static int __devexit tm57pe20a_touch_bt_remove(struct platform_device *pdev)
