@@ -238,6 +238,8 @@ static int jz_current_battery_average_voltage(struct jz_current_battery *battery
 		avg_val = battery->battery_vol;
 	}
 
+	battery->battery_vol = avg_val;
+
 	return avg_val;
 }
 

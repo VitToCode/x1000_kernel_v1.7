@@ -52,10 +52,10 @@ EXCLUSIVE_REGULATOR_DEF(
         "Vldo2",	"vldo2",        NULL,
         NULL,   	3300000,        1);
 #endif
-EXCLUSIVE_REGULATOR_DEF(
-	vldo4,
-	"Vldo4",       "vldo4",		NULL,
-	NULL,   	3500000,        1);
+
+IO_REGULATOR_DEF(
+        vldo4,
+        "vldo4",       3500000,         1);
 
 EXCLUSIVE_REGULATOR_DEF(
         vpower,
