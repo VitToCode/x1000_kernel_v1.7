@@ -313,6 +313,17 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 		return error;
 	}
 
+	tm_data->sclk_irq = gpio_to_irq(tm_data->pdata->sclk);
+	error = request_irq(tm_data->sclk_irq, tm57pe20a_sclk_irq_handler,
+			IRQF_TRIGGER_RISING |IRQF_DISABLED,
+			tm_data->input->name,tm_data);
+
+	if (error != 0) {
+		dev_err(dev, "request irq is error\n");
+		return error;
+	}
+	disable_irq(tm_data->sclk_irq);
+
 	tm_data->irq = gpio_to_irq(tm_data->pdata->intr);
 	tm_data->irq_times = 0;
 	tm_data->data = 0;
@@ -324,23 +335,6 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 		dev_err(dev, "request irq is error\n");
 		return error;
 	}
-
-	/* Need sclk irq requested, then enable */
-	disable_irq(tm_data->irq);
-
-	tm_data->sclk_irq = gpio_to_irq(tm_data->pdata->sclk);
-
-	error = request_irq(tm_data->sclk_irq, tm57pe20a_sclk_irq_handler,
-			IRQF_TRIGGER_RISING |IRQF_DISABLED,
-			tm_data->input->name,tm_data);
-
-	if (error != 0) {
-		dev_err(dev, "request irq is error\n");
-		return error;
-	}
-	disable_irq(tm_data->sclk_irq);
-
-	enable_irq(tm_data->irq);
 
 	return 0;
 fail:
