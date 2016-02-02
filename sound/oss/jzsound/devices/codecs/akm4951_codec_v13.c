@@ -46,6 +46,7 @@ static int user_replay_volume = 100;
 static unsigned long user_replay_rate = DEFAULT_REPLAY_SAMPLE_RATE;
 static struct snd_codec_data *codec_platform_data = NULL;
 static int user_linein_state = 0;
+static struct mutex i2c_access_lock;
 static struct mutex switch_dev_lock;
 
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
@@ -156,6 +157,7 @@ static int akm4951_i2c_write_regs(unsigned char reg, unsigned char* data, unsign
 		return ret;
 	}
 
+	mutex_lock(&i2c_access_lock);
 	buf[0] = reg;
 	for(; i < len; i++){
 		buf[i+1] = *data;
@@ -165,6 +167,7 @@ static int akm4951_i2c_write_regs(unsigned char reg, unsigned char* data, unsign
 	ret = i2c_master_send(client, buf, len+1);
 	if (ret < len+1)
 		printk("%s 0x%02x err %d!\n", __func__, reg, ret);
+	mutex_unlock(&i2c_access_lock);
 
 	return ret < len+1 ? ret : 0;
 }
@@ -184,15 +187,18 @@ static int akm4951_i2c_read_reg(unsigned char reg, unsigned char* data, unsigned
 		return ret;
 	}
 
+	mutex_lock(&i2c_access_lock);
 	ret = i2c_master_send(client, &reg, 1);
 	if (ret < 1) {
 		printk("%s 0x%02x err\n", __func__, reg);
+		mutex_unlock(&i2c_access_lock);
 		return -1;
 	}
 
 	ret = i2c_master_recv(client, data, len);
 	if (ret < 0)
 		printk("%s 0x%02x err\n", __func__, reg);
+	mutex_unlock(&i2c_access_lock);
 
 	return ret < len ? ret : 0;
 }
@@ -771,6 +777,7 @@ static int __init init_akm4951_codec(void)
 {
 	int ret = 0;
 
+	mutex_init(&i2c_access_lock);
 	mutex_init(&switch_dev_lock);
 
 	ret = i2s_register_codec("i2s_external_codec", (void *)jzcodec_ctl, AKM4951_EXTERNAL_CODEC_CLOCK, CODEC_MODE);

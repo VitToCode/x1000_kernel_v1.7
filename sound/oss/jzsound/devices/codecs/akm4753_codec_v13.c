@@ -40,6 +40,8 @@ static struct i2c_client *akm4753_client = NULL;
 static int user_replay_volume = 100;
 static unsigned long user_replay_rate = DEFAULT_REPLAY_SAMPLE_RATE;
 static struct snd_codec_data *codec_platform_data = NULL;
+static struct mutex i2c_access_lock;
+static struct mutex switch_dev_lock;
 
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 
@@ -191,6 +193,7 @@ static int akm4753_i2c_write_regs(unsigned char reg, unsigned char* data, unsign
 		return ret;
 	}
 
+	mutex_lock(&i2c_access_lock);
 	buf[0] = reg;
 	for(; i < len; i++){
 		buf[i+1] = *data;
@@ -200,6 +203,7 @@ static int akm4753_i2c_write_regs(unsigned char reg, unsigned char* data, unsign
 	ret = i2c_master_send(client, buf, len+1);
 	if (ret < len+1)
 		printk("%s 0x%02x err %d!\n", __func__, reg, ret);
+	mutex_unlock(&i2c_access_lock);
 
 	return ret < len+1 ? ret : 0;
 }
@@ -219,15 +223,18 @@ static int akm4753_i2c_read_reg(unsigned char reg, unsigned char* data, unsigned
 		return ret;
 	}
 
+	mutex_lock(&i2c_access_lock);
 	ret = i2c_master_send(client, &reg, 1);
 	if (ret < 1) {
 		printk("%s 0x%02x err\n", __func__, reg);
+		mutex_unlock(&i2c_access_lock);
 		return -1;
 	}
 
 	ret = i2c_master_recv(client, data, len);
 	if (ret < 0)
 		printk("%s 0x%02x err\n", __func__, reg);
+	mutex_unlock(&i2c_access_lock);
 
 	return ret < len ? ret : 0;
 }
@@ -290,6 +297,7 @@ static int codec_set_device(enum snd_device_t device)
 {
 	int ret = 0;
 	unsigned char data;
+	mutex_lock(&switch_dev_lock);
 	switch (device) {
 		case SND_DEVICE_HEADSET:
 			gpio_disable_spk_en();
@@ -329,7 +337,7 @@ static int codec_set_device(enum snd_device_t device)
 			printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
 			ret = -1;
 	};
-
+	mutex_unlock(&switch_dev_lock);
 	return ret;
 }
 
@@ -761,6 +769,10 @@ static struct platform_driver jz_codec_driver = {
 static int __init init_akm4753_codec(void)
 {
 	int ret = 0;
+
+	mutex_init(&i2c_access_lock);
+	mutex_init(&switch_dev_lock);
+
 	ret = i2s_register_codec("i2s_external_codec", (void *)jzcodec_ctl, AKM4753_EXTERNAL_CODEC_CLOCK, CODEC_MODE);
 	if (ret < 0){
 		printk("i2s audio is not support\n");
