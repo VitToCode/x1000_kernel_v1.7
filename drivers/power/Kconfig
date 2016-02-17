@@ -261,6 +261,12 @@ config BATTERY_DA9030
 	  Say Y here to enable support for batteries charger integrated into
 	  DA9030 PMIC.
 
+config BATTERY_CW2015
+	tristate "CW2015 Fuel Gauge"
+	depends on I2C
+	help
+	  The CW2015 is an ultra-compact, low-cost,	host-side/pack-side, sensing resistor free, fuel gauging system IC for Lithium-ion(Li+) based batteries in handheld and portable devices.
+
 config BATTERY_MAX17040
 	tristate "Maxim MAX17040 Fuel Gauge"
 	depends on I2C
