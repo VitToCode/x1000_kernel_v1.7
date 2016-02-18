@@ -70,12 +70,12 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
         {
                 .gpio                           = GPIO_POWERDOWN,
                 .code = {
-                      	.shortpress_code        = KEY_F6,
+			.shortpress_code        = KEY_RESERVED,
                         .longpress_code         = KEY_POWER,
                 },
                 .desc                           = "power down & wakeup",
                 .active_low                     = ACTIVE_LOW_POWERDOWN,
-                .longpress_interval             = 500,
+                .longpress_interval             = 1000,
 		.wakeup                         = 1,
                 .debounce_interval              = 2,
         },
@@ -84,12 +84,12 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 	{
                 .gpio                           = GPIO_BOOT_SEL0,
                 .code = {
-			.shortpress_code       	= KEY_F1,
-			.longpress_code 	= KEY_F12,
+			.shortpress_code       	= KEY_F6,
+			.longpress_code 	= KEY_F1,
 		},
                 .desc                           = "simple config",
                 .active_low                     = 1,
-                .longpress_interval             = 500,
+                .longpress_interval             = 1000,
                 .debounce_interval              = 2,
         },
 #endif

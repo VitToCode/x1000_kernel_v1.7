@@ -123,7 +123,7 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 			return 0;
 		}
 
-		if ((pdata->data & (4 | 8)) == (4 | 8)) {
+		if ((pdata->data & (0x10 | 8)) == (0x10 | 8)) {
 			if (!multi_flag) {
 				key = KEY_F12;
 				input_event(pdata->input,EV_KEY, key, 1);
