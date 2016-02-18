@@ -117,7 +117,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	RMII_PORTB,
 #endif
 
-#ifdef CONFIG_USB_DWC2_DRVVBUS_PIN
+#if defined(CONFIG_USB_DWC2_DRVVBUS_PIN) || defined(CONFIG_USB_NDWC2)
 	OTG_DRVVUS,
 #endif
 
@@ -920,7 +920,7 @@ struct platform_device jz_vpu_device = {
 	.resource         = jz_vpu_resource,
 };
 #endif
-#ifdef CONFIG_USB_DWC2
+#if defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_NDWC2)
 static struct resource jz_dwc_otg_resources[] = {
 	[0] = {
 		.start	= OTG_IOBASE,
