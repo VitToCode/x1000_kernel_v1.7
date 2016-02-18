@@ -210,10 +210,11 @@ enum {
 #define SCODA_ICR_INT_FORM_SHIFT (6)
 #define SCODA_ICR_INT_FORM_MASK (0x3 << SCODA_ICR_INT_FORM_SHIFT)
 #define SCODA_ICR_INT_FORM_HIGH (0)
+#define SCODA_ICR_INT_FORM_LOW  (1)
 
 /* imr */
-#define SCODA_IMR_COMMON_MASK ((1)|(1<<2)|(1<<7))
-#define SCODA_IMR2_COMMON_MASK (1<<4)
+#define SCODA_IMR_COMMON_MASK (0xff)
+#define SCODA_IMR2_COMMON_MASK (0xff)
 
 /*For Codec*/
 #define RGADW		(0x4)
@@ -304,10 +305,12 @@ static inline int icdc_d3_hw_write_normal(struct icdc_d3 *icdc_d3, int reg, int 
 			(data << SCODA_RGDIN_BIT)|(reg << SCODA_RGADDR_BIT));
 	icdc_d3_mapped_reg_set((mapped_base + RGADW), SCODA_RGWR_MASK , 1 << SCODA_RGWR_BIT);
 	spin_unlock_irqrestore(&icdc_d3->io_lock, flags);
-	ret = icdc_d3_hw_read_normal(icdc_d3, reg);
-	if (data != ret){
-		printk("icdc write reg %x err exp %x now is %x\n",reg,data,ret);
-		ret = -1;
+	if( reg != SCODA_REG_IFR && reg != SCODA_REG_IFR2 ){
+		ret = icdc_d3_hw_read_normal(icdc_d3, reg);
+		if (data != ret){
+			printk("icdc write reg %x err exp %x now is %x\n",reg,data,ret);
+			ret = -1;
+		}
 	}
 	return ret;
 }
