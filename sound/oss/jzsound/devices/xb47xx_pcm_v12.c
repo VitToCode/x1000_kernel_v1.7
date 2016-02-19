@@ -582,8 +582,8 @@ static int pcm_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_PCM0;
 
-	(*dp)->fragsize = FRAGSIZE_L;
-	(*dp)->fragcnt = FRAGCNT_M;
+	(*dp)->fragsize = FRAGSIZE_S;
+	(*dp)->fragcnt = FRAGCNT_B;
 	(*dp)->is_non_block = true;
 	(*dp)->is_used = false;
 	(*dp)->can_mmap =true;
