@@ -261,6 +261,31 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 #endif
 	},
 
+	{
+		.name           = "WIN25Q256FV",
+		.pagesize       = 256,
+		.sectorsize     = 4 * 1024,
+		.chipsize       = 32768 * 1024,
+		.erasesize      = 32 * 1024,//4 * 1024,
+		.id             = 0xef4019,
+
+		.block_info     = flash_block_info,
+		.num_block_info = ARRAY_SIZE(flash_block_info),
+
+		.addrsize       = 4,
+		.pp_maxbusy     = 3,            /* 3ms */
+		.se_maxbusy     = 400,          /* 400ms */
+		.ce_maxbusy     = 8 * 10000,    /* 80s */
+
+		.st_regnum      = 3,
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+		.mtd_partition  = jz_mtd_partition1,
+		.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
+#endif
+#ifdef CONFIG_SPI_QUAD
+		.quad_mode = &flash_quad_mode[0],
+#endif
+	}
 };
 
 
