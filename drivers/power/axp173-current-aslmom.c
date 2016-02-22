@@ -697,6 +697,10 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 #endif
 			break;
 		case INT1_USB_IN:
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+			charger->usb_online = 0;
+			break;
+#endif
 			charger->usb_online = 1;
 			for (j = 0; j < 16; ++j)
 				if (charger->usb_chg_current <= \
@@ -883,6 +887,9 @@ static int __devinit axp173_charger_initialize(struct axp173_charger *charger)
 	axp173_charger_write_reg(client, POWER_ADC_SPEED, adc_speed);
 	int1 = INT1_AC_IN | INT1_AC_OUT | INT1_USB_IN |
 			INT1_USB_OUT | INT1_VBUS_VHOLD;
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	int1 &= ~(INT1_USB_IN | INT1_USB_OUT | INT1_VBUS_VHOLD);
+#endif
 	axp173_charger_write_reg(client, POWER_INTEN1, int1);
 #ifdef CONFIG_AXP173_BAT_TEMP_DET
 	int2 = INT2_BATTERY_IN | INT2_BATTERY_OUT |
