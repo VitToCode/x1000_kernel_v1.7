@@ -186,10 +186,11 @@ void setup_wifi_wakeup_BB(struct platform_device *pdev, bool bEnable)
                                     "wlan_wakeup_irq", NULL);
         enable_irq_wake(g_wifi_irq_rc);
     }else{
-	    if(g_wifi_irq_rc){
-		    free_irq(g_wifi_irq_rc,NULL);
-		    g_wifi_irq_rc = 0;
-	}
+        if(g_wifi_irq_rc){
+            free_irq(g_wifi_irq_rc,NULL);
+            g_wifi_irq_rc = 0;
+        }
+
     }
     //printk(KERN_INFO "%s=%d,sprd_3rdparty_gpio_wifi_irq=%d\n",__FUNCTION__,bEnable,sprd_3rdparty_gpio_wifi_irq);
 }
