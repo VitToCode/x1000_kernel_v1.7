@@ -268,7 +268,6 @@ static void pcm_set_trigger(int mode)
 		dp = pcm_priv->endpoint->out_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|dp->dma_config.dst_maxburst);
 		__pcm_set_transmit_trigger((PCM_FIFO_DEPTH - burst_length/data_width) - 1);
-		printk("PCM_FIFO_DEPTH - burst_length/data_width - 1 = %d\n",(PCM_FIFO_DEPTH - burst_length/data_width) - 1);
 }
 	if (mode &CODEC_RMODE) {
 		switch(pcm_priv->record_format) {
