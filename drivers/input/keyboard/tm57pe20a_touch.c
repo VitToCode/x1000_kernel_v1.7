@@ -52,6 +52,7 @@ struct tm57pe20a_key key_table[] = {
 	{0xa00, KEY_VOLUMEDOWN},
 };
 struct tm57pe20a_key key_combo_table[] = {
+	{0x14, KEY_F10},
 	{0x18, KEY_F12},
 	{0x2a, KEY_HELP},
 };
