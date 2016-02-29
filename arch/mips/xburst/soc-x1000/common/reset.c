@@ -399,9 +399,7 @@ static int wdt_probe(struct platform_device *pdev)
 	if (res) {
 		res->read_proc = scratch_pattern_read_proc;
 		res->write_proc = scratch_pattern_write_proc;
-		rtc_write_reg(RTC_HSPR, 0);
 	}
-
 	return 0;
 }
 

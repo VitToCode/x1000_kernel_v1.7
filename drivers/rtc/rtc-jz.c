@@ -342,7 +342,9 @@ static void jz_rtc_enable(struct jz_rtc *rtc)
 	hspr = jzrtc_readl(rtc, RTC_HSPR);
 	rgr_1hz = jzrtc_readl(rtc, RTC_RTCGR) & RTCGR_NC1HZ_MASK;
 
-	if ((hspr != cfc) || (rgr_1hz != RTC_FREQ_DIVIDER)) {
+	if (hspr == HSPR_PWOF) {
+		jzrtc_writel(rtc, RTC_HSPR, cfc);
+	} else if (hspr != cfc || (rgr_1hz != RTC_FREQ_DIVIDER)) {
 		/* We are powered on for the first time !!! */
 
 		pr_info("jz-rtc: rtc power on reset !\n");

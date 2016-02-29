@@ -93,6 +93,7 @@
 
 /* Hibernate scratch pattern register(HSPR) */
 #define HSPR_RTCV               0x52544356      /* The value is 'RTCV', means rtc is valid */
+#define HSPR_PWOF               0x50574f46      /* The value is 'PWOF', means power off */
 
 /*power on initial procedure control bit(PWRONCR)*/
 #define PWRON_EN                BIT(0)
