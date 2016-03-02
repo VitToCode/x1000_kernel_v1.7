@@ -37,6 +37,9 @@
 #include <linux/clk.h>
 #include <linux/bitops.h>
 #include <linux/pm.h>
+#include <linux/proc_fs.h>
+#include <jz_proc.h>
+#include <soc/base.h>
 
 #include "rtc-jz.h"
 
@@ -95,6 +98,24 @@ static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 	writel(value,dev->iomem + offset);
 	wait_write_ready(dev);
 	mutex_unlock(&dev->mutex_wr_lock);
+}
+
+
+static void jzrtc_write_reg(int reg, int value)
+{
+	int timeout = 0x2000;
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && timeout--);
+	if(!timeout) {
+		printk("ERROR: RTC WRDY FAIL!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+		printk("please do select CONFIG_RESET_KEEP_POWER\n");
+		return;
+	}
+	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	outl(value,(RTC_IOBASE + reg));
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 }
 
 static inline void jzrtc_clrl(struct jz_rtc *dev,int offset, unsigned int value)
@@ -380,10 +401,53 @@ static void jz_rtc_enable(struct jz_rtc *rtc)
 	mutex_unlock(&rtc->mutexlock);
 }
 
+static int scratch_pattern_read_proc(char *page, char **start, off_t off,
+                                     int count, int *eof, void *data)
+{
+	int len = 0;
+	len += sprintf(page + len,"RTC_HSPR = 0x%08x\n", inl(RTC_IOBASE + RTC_HSPR));
+	return len;
+}
+
+static int scratch_pattern_write_proc(struct file *file, const char __user *buffer,
+                                      unsigned long count, void *data)
+{
+	int hspr;
+
+	sscanf(buffer, "0x%x\n", &hspr);
+	jzrtc_write_reg(RTC_HSPR, hspr);
+
+	return count;
+}
+
+static int alarm_flag_read_proc(char *page, char **start, off_t off,
+                                     int count, int *eof, void *data)
+{
+	int len = 0;
+	len += sprintf(page + len,"RTC_RTCCR = 0x%08x\n", inl(RTC_IOBASE + RTC_RTCCR));
+	return len;
+}
+
+static int alarm_flag_write_proc(struct file *file, const char __user *buffer,
+                                      unsigned long count, void *data)
+{
+	int temp;
+	int rtccr;
+
+	sscanf(buffer, "0x%x\n", &temp);
+	rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	rtccr &= ~(1 << 4);
+	rtccr &= ~(1 << 2);
+	jzrtc_write_reg(RTC_RTCCR, rtccr);
+
+	return count;
+}
+
 static int jz_rtc_probe(struct platform_device *pdev)
 {
 	struct jz_rtc *rtc;
 	int ret;
+	struct proc_dir_entry *p,*res;
 
 	rtc = kzalloc(sizeof(*rtc), GFP_KERNEL);
 	if (!rtc) {
@@ -444,10 +508,30 @@ static int jz_rtc_probe(struct platform_device *pdev)
 		goto err_unregister_rtc;
 	}
 
+	p = jz_proc_mkdir("rtc");
+	if (!p) {
+		pr_warning("create_proc_entry for rtc failed.\n");
+		ret = -ENODEV;
+		goto err_unmkdir_rtc;
+	}
+
+	res = create_proc_entry("scratch_pattern", 0444, p);
+	if (res) {
+		res->read_proc = scratch_pattern_read_proc;
+		res->write_proc = scratch_pattern_write_proc;
+	}
+
+	res = create_proc_entry("alarm_flag", 0444, p);
+	if (res) {
+		res->read_proc = alarm_flag_read_proc;
+		res->write_proc = alarm_flag_write_proc;
+	}
+
 	jz_rtc_enable(rtc);
 
 	return 0;
 
+err_unmkdir_rtc:
 err_unregister_rtc:
 	rtc_device_unregister(rtc->rtc);
 	iounmap(rtc->iomem);

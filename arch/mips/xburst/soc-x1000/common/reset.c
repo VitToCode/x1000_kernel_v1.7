@@ -329,25 +329,6 @@ static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static int scratch_pattern_read_proc(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	int len = 0;
-	len += sprintf(page + len,"RTC_HSPR = 0x%08x\n", inl(RTC_IOBASE + RTC_HSPR));
-	return len;
-}
-
-static int scratch_pattern_write_proc(struct file *file, const char __user *buffer,
-				      unsigned long count, void *data)
-{
-	int hspr;
-
-	sscanf(buffer, "0x%x\n", &hspr);
-	rtc_write_reg(RTC_HSPR, hspr);
-
-	return count;
-}
-
 static int wdt_probe(struct platform_device *pdev)
 {
 	struct wdt_reset *wdt;
@@ -395,11 +376,6 @@ static int wdt_probe(struct platform_device *pdev)
 		res->data = wdt;
 	}
 
-	res = create_proc_entry("scratch_pattern", 0444, p);
-	if (res) {
-		res->read_proc = scratch_pattern_read_proc;
-		res->write_proc = scratch_pattern_write_proc;
-	}
 	return 0;
 }
 
