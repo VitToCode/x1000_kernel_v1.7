@@ -425,93 +425,25 @@ static int i2s_set_channel(struct i2s_device * i2s_dev, int* channel,int mode)
 }
 
 /***************************************************************\
- *  Use codec slave mode clock rate list
- *  We do not hope change EPLL,so we use 270.67M (fix) epllclk
- *  for minimum error
- *  270.67M ---	M:203 N:9 OD:1
- *	 rate	 i2sdr	 cguclk		 i2sdv.div	samplerate/error
- *	|192000	|1		|135.335M	|10			|+0.12%
- *	|96000	|3		|67.6675M	|10			|+0.12%
- *	|48000	|7		|33.83375M	|10			|-0.11%
- *	|44100	|7		|33.83375M	|11			|-0.10%
- *	|32000	|11		|22.555833M	|10			|+0.12%
- *	|24000	|15		|16.916875M	|10			|+0.12%
- *	|22050	|15		|16.916875M	|11			|-0.12%
- *	|16000	|23		|11.277916M	|10			|+0.12%
- *	|12000  |31		|8.458437M	|10			|+0.12%
- *	|11025	|31		|8.458437M	|11			|-0.10%
- *	|8000	|47		|5.523877M	|10			|+0.12%
- *	HDMI:
- *	sysclk 11.2896M (theoretical)
- *	i2sdr  23
- *	cguclk 11.277916M (practical)
- *	error  -0.10%
- *  If using internal codec, EPLL should be 204MHz to divide 12MHz SYSCLK
- *  If using external codec and AIC support BITCLK, EPLL should be 270MHz to divide exact sample rate
+ *If x1000 i2s is master mode, the below is sample rate error list.
+ *APLL = 1008MHZ --- M:42 N:1 OD:1
+ *sample rate   i2scdr_M        i2scdr_N        error(%)
+ *8000		16		7875		0
+ *11025		7		2500		0
+ *12000		8		2625		0
+ *16000		32		7875		0
+ *22050		7		1250		0
+ *24000		16		2526		0
+ *32000		64		7875		0
+ *44100		7		625		0
+ *48000		32		2625		0
+ *88200		14		625		0
+ *96000		64		2625		0
+ *176400	28		625		0
+ *192000	128		2625		0
+ *384000	256		2625		0
+ *Take care: There may be a problem in 384000 only, because the i2scdr_M and N is out of De_p and De_n range. 
 \***************************************************************/
-static unsigned long calculate_cgu_aic_rate(struct i2s_device * i2s_dev, unsigned long *rate)
-{
-	int i;
-	unsigned long mrate[12] = {
-		8000, 11025, 12000, 16000,22050,24000,
-		32000,44100, 48000, 88200,96000,192000,
-	};
-
-	unsigned long mcguclk[12] = {
-		8192000, 11333338, 12288000, 8192000, 11333338, 12288000,
-		8192000, 11333338, 12288000, 11333338,12288000, 25500000,
-	};
-	for (i=0; i<12; i++) {
-		if (*rate <= mrate[i]) {
-			*rate = mrate[i];
-			break;
-		}
-	}
-
-	if (i >= 12) {
-		*rate = 44100; /*unsupport rate use default*/
-		return mcguclk[7];
-	}
-
-	return mcguclk[i];
-}
-
-/* This is only for x1000's I2SCDR set */
-static unsigned long calculate_i2scdr(struct i2s_device * i2s_dev, unsigned long *rate, unsigned int *div)
-{
-        int i;
-        unsigned long mrate[13] = {
-                8000, 11025, 12000, 16000, 22050, 24000,
-                32000,44100, 48000, 88200, 96000, 176400, 192000,
-        };
-
-        unsigned int i2scdr_div[][3] = {
-                {3, 1, 375}, {1, 7,2500}, {3, 1, 250}, {3, 2, 375}, {1, 7,1250}, {3, 1, 125},
-                {3, 4, 375}, {1, 7, 625}, {3, 2, 125}, {1, 14,625}, {3, 4, 125}, {1, 28,625}, {3, 8,125},
-        };
-
-        for (i=0; i<13; i++) {
-                if (*rate <= mrate[i]) {
-                        *rate = mrate[i];
-                        break;
-                }
-        }
-
-        if (i >= 13) {
-                *rate = 44100; /*unsupport rate use default*/
-                div[0] = i2scdr_div[7][0];
-                div[1] = i2scdr_div[7][1];
-                div[2] = i2scdr_div[7][2];
-                return *rate;
-        }
-
-        div[0] = i2scdr_div[i][0];
-        div[1] = i2scdr_div[i][1];
-        div[2] = i2scdr_div[i][2];
-
-        return *rate;
-}
-
 static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mode)
 {
 	int ret = 0;

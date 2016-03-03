@@ -39,7 +39,9 @@
  * global variable
  **/
 
-void volatile __iomem *volatile i2s_iomem ;
+#ifndef CONFIG_SOUND_JZ_I2S_V13
+void volatile __iomem *volatile i2s_iomem;
+#endif
 void volatile __iomem *volatile spdif_iomem;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints spdif_endpoints;
@@ -214,6 +216,27 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 	return ret;
 }
 
+static unsigned long calculate_cgu_spdif_rate(unsigned long *rate)
+{
+	int i;
+	unsigned long mrate[13] = {
+		8000, 11025, 12000, 16000,22050,24000,
+		32000,44100, 48000, 88200,96000,176400,192000,
+	};
+
+        for (i=0; i<=12; i++) {
+                if (*rate <= mrate[i]) {
+                        *rate = mrate[i];
+                        break;
+                }
+        }
+        if (i > 12) {
+                printk("The rate isn't be support by SPDIF, fix to 44100\n");
+                *rate = 44100; /*use default*/
+        }
+	return 0;
+}
+
 static int spdif_set_rate(unsigned long *rate,int mode)
 {
 	int ret = 0;
@@ -226,9 +249,10 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 		|* So we should not to care slave mode or master mode.		 *|
 		\*************************************************************/
 		__i2s_stop_bitclk();
+		calculate_cgu_spdif_rate(rate);
 		ret = clk_set_rate(codec_sysclk, *rate * 256);
 		if(ret < 0) {
-			printk("ERROR: external codec set rate failed!\n");
+			printk("ERROR: spdif set rate failed!\n");
 			return -EINVAL;
 		}
 
@@ -783,7 +807,9 @@ static int spdif_global_init(struct platform_device *pdev)
 		printk("%s request mem region failed!\n", __func__);
 		return -EBUSY;
 	}
+#ifndef CONFIG_SOUND_JZ_I2S_V13
 	i2s_iomem = ioremap(0x10020000, 0x70);
+#endif
 	spdif_iomem = ioremap(spdif_resource->start, resource_size(spdif_resource));
 	if (!spdif_iomem) {
 		printk("%s ioremap failed!\n", __func__);
