@@ -44,7 +44,7 @@ struct tm57pe20a_key {
 struct tm57pe20a_key key_table[] = {
 	{1, KEY_PLAYPAUSE},
 	{2, KEY_NEXTSONG},
-	{4, KEY_F5},
+	{4, KEY_MENU},
 	{8, KEY_RECORD},
 	{0x10, KEY_F3},
 	{0x20, KEY_PREVIOUSSONG},
