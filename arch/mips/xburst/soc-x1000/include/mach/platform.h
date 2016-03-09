@@ -33,6 +33,8 @@
 #define UART2_PORTC							\
 	{ .name = "uart2-pc", .port = GPIO_PORT_C, .func = GPIO_FUNC_1, .pins = 0x1 << 31 }
 /****************************************************************************************/
+#define MSC0_PORTA_1BIT							\
+	{ .name = "msc0-pa-1bit", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x380 << 16, }
 #define MSC0_PORTA_4BIT							\
 	{ .name = "msc0-pa-4bit", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x3f0 << 16, }
 #define MSC0_PORTA_8BIT							\
