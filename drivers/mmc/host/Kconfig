@@ -27,6 +27,8 @@ choice
 	prompt "JZMMC_V12 GPIO function pins select"
 	depends on JZMMC_V12_MMC0
 	default JZMMC_V12_MMC0_PA_4BIT
+config JZMMC_V12_MMC0_PA_1BIT
+	bool "GPIO A, data with 1 bit"
 config JZMMC_V12_MMC0_PA_4BIT
 	bool "GPIO A, data with 4 bit"
 config JZMMC_V12_MMC0_PA_8BIT

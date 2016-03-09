@@ -29,6 +29,9 @@
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
+#ifdef CONFIG_JZMMC_V12_MMC0_PA_1BIT
+	MSC0_PORTA_1BIT,
+#endif
 #ifdef CONFIG_JZMMC_V12_MMC0_PA_4BIT
 	MSC0_PORTA_4BIT,
 #endif
