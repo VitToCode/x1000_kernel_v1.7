@@ -45,7 +45,10 @@ static struct i2c_client *akm4951_client = NULL;
 static int user_replay_volume = 100;
 static unsigned long user_replay_rate = DEFAULT_REPLAY_SAMPLE_RATE;
 static struct snd_codec_data *codec_platform_data = NULL;
+/* user_linein_state and user_replay_state is just for mute the speaker, when no linein or i2s replay */
 static int user_linein_state = 0;
+static int user_replay_state = 0;
+
 static struct mutex i2c_access_lock;
 static struct mutex switch_dev_lock;
 
@@ -255,7 +258,7 @@ static int codec_set_replay_rate(unsigned long *rate)
 	data |= reg[i];
 	akm4951_i2c_write_regs(0x06, &data, 1);
 	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
-	if (user_replay_volume != 0)
+	if (user_replay_volume)
 		gpio_enable_spk_en();
 	return 0;
 }
@@ -293,7 +296,7 @@ static int codec_set_device(enum snd_device_t device)
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
 			codec_set_replay_rate(&user_replay_rate);
-			if (user_replay_volume != 0)
+			if (user_replay_volume && user_replay_state)
 				gpio_enable_spk_en();
 			break;
 		case SND_DEVICE_LINEIN_RECORD:
@@ -313,7 +316,7 @@ static int codec_set_device(enum snd_device_t device)
 			data |= 0xf;
 			akm4951_i2c_write_regs(0x06, &data, 1);
 			msleep(5);
-			if (user_replay_volume != 0) {
+			if (user_replay_volume) {
 				gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 				/* This is only for aslmom board battery power detection */
@@ -443,15 +446,16 @@ static int codec_set_replay_volume(int *val)
 	user_replay_volume = *val;
 	if (*val) {
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
-		/* use -2dB ~ -42dB */
-		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 28;
+		/* use -4dB ~ -44dB */
+		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 32;
 #else
 		/* use 0dB ~ -50dB */
 		data = 100 - *val + 24;
 #endif
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
-		gpio_enable_spk_en();
+		if (user_replay_state || user_linein_state)
+			gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 		/* This is only for aslmom board battery power detection */
 		jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, val);
@@ -497,7 +501,7 @@ static int codec_resume(void)
 	data = power_reg1;
 	ret |= akm4951_i2c_write_regs(0x01, &data, 1);
 	msleep(50);
-	if (user_replay_volume != 0)
+	if (user_replay_volume && (user_replay_state || user_linein_state))
 		gpio_enable_spk_en();
 	return 0;
 }
@@ -547,6 +551,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 				jz_notifier_call(NOTEFY_PROI_LOW, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
+			user_replay_state = 0;
 			break;
 
 		case CODEC_SHUTDOWN:
@@ -565,13 +570,14 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_ANTI_POP:
-			if (user_replay_volume != 0) {
+			if (user_replay_volume) {
 				gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
+			user_replay_state = 1;
 			break;
 
 		case CODEC_SET_DEFROUTE:
