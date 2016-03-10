@@ -840,46 +840,68 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 	struct i2s_device *i2s_dev = i2s_get_private_data(ddata);
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
 
-	/* wait for do_ioctl_work operation finish */
-	flush_work_sync(&i2s_dev->i2s_work);
-
 	switch(cmd) {
 		case SND_DSP_GET_REPLAY_RATE:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			if (cur_codec && cur_codec->replay_rate)
 				*(unsigned long *)arg = cur_codec->replay_rate;
 			ret = 0;
 			break;
 		case SND_DSP_GET_RECORD_RATE:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			if (cur_codec && cur_codec->record_rate)
 				*(unsigned long *)arg = cur_codec->record_rate;
 			ret = 0;
 			break;
 
 		case SND_DSP_GET_REPLAY_CHANNELS:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			if (cur_codec && cur_codec->replay_codec_channel)
 				*(unsigned long *)arg = cur_codec->replay_codec_channel;
 			ret = 0;
 			break;
 
 		case SND_DSP_GET_RECORD_CHANNELS:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			if (cur_codec && cur_codec->record_codec_channel)
 				*(unsigned long *)arg = cur_codec->record_codec_channel;
 			ret = 0;
 			break;
 
 		case SND_DSP_GET_REPLAY_FMT_CAP:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* return the support replay formats */
 			ret = i2s_get_fmt_cap(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 			break;
 
 		case SND_DSP_GET_REPLAY_FMT:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* get current replay format */
 			i2s_get_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 			break;
 		case SND_DSP_GET_HP_DETECT:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			*(int*)arg = jz_get_hp_switch_state(i2s_dev);
 			ret = 0;
 			break;
+		/*
+		 * There is no flush_work_sync() in the four case below.
+		 * Because they will be called in some function which is prohibit CPU scheduling.
+		 */
 		case SND_DSP_ENABLE_DMA_RX:
 			ret = i2s_dma_enable(i2s_dev, CODEC_RMODE);
 			break;
@@ -910,14 +932,23 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			break;
 
 		case SND_DSP_SET_REPLAY_RATE:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 			break;
 
 		case SND_DSP_SET_RECORD_RATE:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
 			break;
 
 		case SND_DSP_SET_REPLAY_CHANNELS:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* set replay channels */
 			ret = i2s_set_channel(i2s_dev, (int *)arg,CODEC_WMODE);
 			if (ret < 0)
@@ -928,6 +959,9 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			break;
 
 		case SND_DSP_SET_RECORD_CHANNELS:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* set record channels */
 			ret = i2s_set_channel(i2s_dev, (int*)arg,CODEC_RMODE);
 			if (ret < 0)
@@ -938,6 +972,9 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			break;
 
 		case SND_DSP_SET_REPLAY_FMT:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* set replay format */
 			ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 			if (ret < 0)
@@ -956,6 +993,9 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			break;
 
 		case SND_DSP_SET_RECORD_FMT:
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			/* set record format */
 			ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
 			if (ret < 0)
@@ -978,6 +1018,9 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			 * This is only for some more time-consuming operations.
 			 * We use the work queue to save time.
 			 */
+			/* wait for do_ioctl_work operation finish */
+			flush_work_sync(&i2s_dev->i2s_work);
+
 			i2s_dev->ioctl_cmd = cmd;
 			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg; //caution the value of arg
 			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
