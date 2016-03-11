@@ -605,6 +605,9 @@ static void codec_set_adc(struct codec_info *codec_dev, int mode)
 
 	switch(mode){
 		case ADC_ENABLE_WITH_DMIC:
+			regval = icdc_d3_hw_read(codec_dev,SCODA_REG_FCR_ADC);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_FCR_ADC,regval|1<<6);
+
 			regval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
 			icdc_d3_hw_write(codec_dev, SCODA_REG_CR_ADC, regval&(~(1<<4)));
 			regval = icdc_d3_hw_read(codec_dev, SCODA_REG_CR_ADC);
@@ -612,6 +615,9 @@ static void codec_set_adc(struct codec_info *codec_dev, int mode)
 			mdelay(1);
 			break;
 		case ADC_ENABLE_WITH_AMIC:
+			regval = icdc_d3_hw_read(codec_dev,SCODA_REG_FCR_ADC);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_FCR_ADC,regval|1<<6);
+
 			regval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
 			icdc_d3_hw_write(codec_dev, SCODA_REG_CR_ADC, regval&(~(1<<4)));
 			regval = icdc_d3_hw_read(codec_dev, SCODA_REG_CR_ADC);
@@ -1375,7 +1381,7 @@ static int codec_set_record_rate(struct codec_info *codec_dev, unsigned long *ra
 
 	val = icdc_d3_hw_read(codec_dev,SCODA_REG_FCR_ADC);
 	val &= ~0xf;
-	icdc_d3_hw_write(codec_dev,SCODA_REG_FCR_ADC,val|speed|1<<6);
+	icdc_d3_hw_write(codec_dev,SCODA_REG_FCR_ADC,val|speed);
 	return *rate;
 }
 
