@@ -787,6 +787,7 @@ static void axp173_charger_work_int4(struct axp173_charger *charger,
 		switch (src & (1<<i)) {
 		case INT4_LOWVOLTAGE_WARNING1:
 			AXP173_DEBUG_MSG("======================>:open boost!!\n");
+			power_supply_changed(&charger->battery);
 			gpio_direction_output(GPIO_BOOST, 1);
 			break;
 		default:
