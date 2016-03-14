@@ -70,7 +70,7 @@ static unsigned int jz_current_battery_voltage(struct jz_current_battery *batter
 	voltage = pmu_charging == CHARGING_ON ? voltage -               \
 			(pmu_current * get_battery_info(battery, inter_resist) \
 			 /1000) : voltage + (pmu_current*get_battery_info(battery, inter_resist)/1000);
-	battery->battery_vol = voltage;
+	battery->battery_ocv = voltage;
 
 	mutex_unlock(&battery->lock);
 
