@@ -525,8 +525,12 @@ static void low_power_detect(struct axp173_charger *charger, int cap, int voltag
 	if(charging == 0xc0) /* when ACIN:discharge's current >  charge's current */
 		charging = 0;
 	else
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+		charging = !!(charging & AC_AVAILABLE);
+#else
 		charging = !!(charging & (AC_AVAILABLE | USB_AVAILABLE));
-	if((!charging && cap == 0) && (voltage < 3550) && (voltage > 3461)) {
+#endif
+	if((!charging && cap == 0) && (voltage < 3573) && (voltage > 3485)) {
 		charger->current_cpt = 0;
 		power_supply_changed(&charger->battery);
 		AXP173_DEBUG_MSG("****The capacity of battery is 0, please charge!****\n");
@@ -581,7 +585,7 @@ static void init_battery_cpy(struct axp173_charger *charger)
 		return;
 
 	charger->current_cpt = battery->get_battery_current_cpt(battery);
-	charger->real_voltage = battery->battery_vol;
+	charger->real_voltage = battery->real_vol;
 	AXP173_DEBUG_MSG("init cpt = %d\n", charger->current_cpt);
 	charger->base_cpt = charger->max_cpt * charger->current_cpt *
 			adc_freq_get(charger) / 100 * 480 / 4369;
@@ -1242,7 +1246,7 @@ static void axp173_battery_capacity_rising(struct axp173_charger *charger)
 	if (charger->current_cpt == 99)
 		return;
 
-	if((charger->real_voltage < 3660) && (charger->real_voltage > 3461)
+	if((charger->real_voltage < 3700) && (charger->real_voltage > 3485)
 		&& (charger->real_cpt < 30))
 		charger->next_scan_time = 15;
 	else if(charger->real_cpt == 100)
@@ -1257,7 +1261,7 @@ static void axp173_battery_capacity_falling(struct axp173_charger *charger)
 {
 	charger->next_scan_time = 60;
 
-	if((charger->real_voltage < 3660) && (charger->real_voltage > 3461)
+	if((charger->real_voltage < 3700) && (charger->real_voltage > 3485)
 		&& (charger->real_cpt < 30))
 		charger->next_scan_time = 15;
 	else if(charger->real_cpt == 100)
@@ -1311,7 +1315,7 @@ static void axp173_battery_update_cpt_work(struct axp173_charger *charger)
 
 	charger->real_cpt = battery->get_battery_current_cpt(battery);
 	AXP173_DEBUG_MSG("=>>>>>>in %s:real_cpt = %d\n",__func__,charger->real_cpt);
-	charger->real_voltage = battery->battery_vol;//ocv
+	charger->real_voltage = battery->real_vol;
 	low_power_detect(charger, charger->real_cpt, charger->real_voltage);
 	axp173_battery_set_scan_time(charger);
 }
@@ -1435,7 +1439,7 @@ static int axp173_charger_resume(struct platform_device *pdev)
 	/* NOTE: If the battery has power, the App should suspend again */
 //	get_battery_cacpacity(charger);
 	charger->real_cpt = battery->get_battery_current_cpt(battery);
-	charger->real_voltage = battery->battery_vol;//ocv
+	charger->real_voltage = battery->real_vol;
 	low_power_detect(charger, charger->real_cpt, charger->real_voltage);
 
 	return 0;

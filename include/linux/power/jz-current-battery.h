@@ -63,7 +63,8 @@ struct jz_current_battery {
 	int (*get_battery_high_temp_dischg)(void *battery_interface);
 #endif
 	int irq;
-	unsigned int battery_vol;
+	unsigned int battery_ocv;
+	unsigned int real_vol;
 	struct power_supply battery_adc;
 	struct completion read_completion;
 	struct mutex lock;

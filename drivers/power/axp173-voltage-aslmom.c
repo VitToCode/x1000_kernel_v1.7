@@ -79,10 +79,12 @@ static unsigned int jz_current_battery_voltage(struct jz_current_battery *batter
 		pmu_current = battery->get_pmu_current(battery->pmu_interface);
 //	printk("========++>pmu_charging = %d, pmu_current = %d\n", pmu_charging,
 //	       pmu_current);
+
+	battery->real_vol = voltage;
 	voltage = pmu_charging == CHARGING_ON ? voltage -               \
 			(pmu_current * get_battery_info(battery, inter_resist) \
 			 /1000) : voltage + (pmu_current*get_battery_info(battery, inter_resist)/1000);
-	battery->battery_vol = voltage;
+	battery->battery_ocv = voltage;
 
 	mutex_unlock(&battery->lock);
 
@@ -150,6 +152,9 @@ static int jz_current_battery_current_cpt(unsigned int voltage)
 
 		cpt = ocv2soc[i-1].cpt - vol / cpt_step;
 	}
+
+	if(cpt < 0)
+		cpt = 0;
 
 	return cpt;
 }
@@ -228,10 +233,10 @@ static int jz_current_battery_average_voltage(struct jz_current_battery *battery
 	}else{
 		dump_stack();
 		/* return previous value */
-		avg_val = battery->battery_vol;
+		avg_val = battery->battery_ocv;
 	}
 
-	battery->battery_vol = avg_val;
+	battery->battery_ocv = avg_val;
 
 	return avg_val;
 }
