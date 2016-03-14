@@ -35,6 +35,7 @@ struct tm57pe20a_touch_data {
 	int irq_times;
 	unsigned int data;
 	spinlock_t lock;
+	struct timer_list timer;
 };
 struct tm57pe20a_key {
 	unsigned int key;
@@ -74,11 +75,14 @@ static void button_code_clear(struct tm57pe20a_touch_data *pdata)
 		input_event(pdata->input, EV_KEY, global_button_code, 0);
 		input_sync(pdata->input);
 		global_button_code = 0;
+		del_timer_sync(&pdata->timer);
 	}
 }
 
 static int button_code_report(struct tm57pe20a_touch_data *pdata, unsigned int key_code)
 {
+	mod_timer(&pdata->timer, jiffies + msecs_to_jiffies(80));
+
 	if (global_button_code == key_code) {
 		return 0;
 	} else if (global_button_code) {
@@ -90,6 +94,11 @@ static int button_code_report(struct tm57pe20a_touch_data *pdata, unsigned int k
 	input_sync(pdata->input);
 
 	return 0;
+}
+
+static void key_function(unsigned long data)
+{
+	button_code_clear((struct tm57pe20a_touch_data *)data);
 }
 
 static int report_key(struct tm57pe20a_touch_data *pdata)
@@ -129,19 +138,25 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 					key_code = key_table[i].value;
 		}
 
-		if (key_code == 0)
+		if (key_code == 0) {
+			if (global_button_code)
+				mod_timer(&pdata->timer, jiffies + msecs_to_jiffies(80));
 			return 0;
+		}
 
 		if (button_code_backup && button_code_backup == key_code) {
-			if (button_code_count++ < 4)
+			if (++button_code_count < 4)
 				return 0;
 
-			button_code_backup = 0;
-			button_code_count = 0;
 			return button_code_report(pdata, key_code);
 		} else {
 			button_code_backup = key_code;
-			button_code_count = 0;
+			if (global_button_code == key_code) {
+				button_code_count = 3;
+				mod_timer(&pdata->timer, jiffies + msecs_to_jiffies(80));
+			} else {
+				button_code_count = 0;
+			}
 			return 0;
 		}
 
@@ -226,6 +241,7 @@ static irqreturn_t tm57pe20a_sclk_irq_handler(int irq, void *dev_id)
 static irqreturn_t tm57pe20a_touch_irq_handler(int irq, void *dev_id)
 {
 	struct tm57pe20a_touch_data *pdata = dev_id;
+
 	disable_irq_nosync(pdata->irq);
 	pdata->data = 0;
 	enable_irq(pdata->sclk_irq);
@@ -330,6 +346,10 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 		dev_err(dev, "request irq is error\n");
 		return error;
 	}
+
+	init_timer(&tm_data->timer);
+	tm_data->timer.function = key_function;
+	tm_data->timer.data = (long)tm_data;
 
 	return 0;
 fail:
