@@ -1117,12 +1117,15 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
                          * This is only for some more time-consuming operations.
                          * We use the work queue to save time.
                          */
+			mutex_lock(&i2s_dev->work_mutex);
 			/* wait for do_ioctl_work operation finish */
 			flush_work_sync(&i2s_dev->i2s_work);
 
 			i2s_dev->ioctl_cmd = cmd;
 			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg;
 			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
+			mutex_unlock(&i2s_dev->work_mutex);
+
 			break;
 	}
 	return ret;
@@ -1358,6 +1361,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 
 	spin_lock_init(&i2s_dev->i2s_irq_lock);
 	spin_lock_init(&i2s_dev->i2s_lock);
+	mutex_init(&i2s_dev->work_mutex);
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 	i2s_match_codec(i2s_dev, "internal_codec");

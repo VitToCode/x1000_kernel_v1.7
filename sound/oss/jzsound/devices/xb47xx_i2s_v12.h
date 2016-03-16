@@ -33,6 +33,7 @@ struct i2s_device {
 	int i2s_irq;
 	spinlock_t i2s_irq_lock;
 	spinlock_t i2s_lock;
+	struct mutex work_mutex;
 	char name[20];
 
 	struct resource *res;
