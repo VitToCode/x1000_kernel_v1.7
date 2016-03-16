@@ -21,6 +21,11 @@ config DEFAULT_MESSAGE_LOGLEVEL
 	  that are auditing their logs closely may want to set it to a lower
 	  priority.
 
+config DEFAULT_CONSOLE_LOGLEVEL
+	int "Default console log level (1-7)"
+	range 1 7
+	default "7"
+
 config ENABLE_WARN_DEPRECATED
 	bool "Enable __deprecated logic"
 	default y
