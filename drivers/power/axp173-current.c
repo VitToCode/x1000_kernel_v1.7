@@ -17,6 +17,8 @@
 #define GPIO_BOOST 	GPIO_PB(5)
 #endif
 
+#define TEMP_HYSTERESIS_VOLTAGE 116
+
 static int temp_key = 0;
 
 #ifdef CONFIG_AXP173_CHARGER_DEBUG
@@ -100,12 +102,20 @@ struct axp173_charger {
 	int high_temp_chg;
 	int low_temp_dischg;
 	int high_temp_dischg;
+
+	int low_temp_chg_val;
+	int high_temp_chg_val;
+	int low_temp_dischg_val;
+	int high_temp_dischg_val;
 #endif
 
 	struct power_supply battery;
 	struct power_supply usb;
 	struct power_supply ac;
 	struct delayed_work work;
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	struct delayed_work temp_work;
+#endif
 	struct mutex lock;
 	struct early_suspend early_suspend;
 };
@@ -140,6 +150,7 @@ enum adc_type {
 	VBUS_CUR,
 	BAT_VOL,
 	BAT_CUR,
+	TS_VOL,
 };
 
 static enum power_supply_property axp173_battery_power_properties[] = {
@@ -260,6 +271,10 @@ static unsigned int axp173_get_single_adc_data(struct axp173_charger *charger,
 		GET_ADC_VALUE(POWER_BAT_AVERDISCHGCUR_H8,
 			POWER_BAT_AVERDISCHGCUR_L5);
 		val += ((tmp[0] << 5) + (tmp[1] & 0x1f)) / 2;
+		break;
+	case TS_VOL:
+		GET_ADC_VALUE(POWER_TS_VOL_H8, POWER_TS_VOL_L4);
+		val = ((tmp[0] << 4) + ((tmp[1] & 0x0f))) * 8 / 10;
 		break;
 	default:
 		break;
@@ -586,6 +601,25 @@ static void axp173_battery_set_aps_warning(struct axp173_charger *charger)
 }
 #endif
 
+static int axp173_set_poweroff_voff(struct axp173_charger *charger)
+{
+	unsigned char value = 0;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_VOFF_SET, &value);
+	value &= ~0x7;/* set Voff 2.6v */
+	axp173_charger_write_reg(client, POWER_VOFF_SET, value);
+
+	return 0;
+}
+
+static int axp173_disable_low_power_protection(struct axp173_charger *charger)
+{
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_write_reg(client, POWER_VOUT_MONITOR, 0);
+}
+
 static void axp173_charger_work_int1(struct axp173_charger *charger,
 				     unsigned char src)
 {
@@ -625,6 +659,8 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 #endif
 			break;
 		case INT1_USB_IN:
+			axp173_charger_write_reg(client, POWER_IPS_SET, 0);
+
 			charger->usb_online = 1;
 			for (j = 0; j < 16; ++j)
 				if (charger->usb_chg_current <= \
@@ -635,8 +671,6 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 			temp = (temp & 0xf0) | j;
 			axp173_charger_write_reg(client,
 						 POWER_CHARGE1, temp);
-			axp173_charger_read_reg(client,
-						POWER_CHARGE1, &temp);
 			break;
 		case INT1_USB_OUT:
 			charger->usb_online = 0;
@@ -744,8 +778,8 @@ static void axp173_charger_work(struct work_struct *work)
 	axp173_charger_read_reg(client, POWER_INTEN##x, &(mask##x));    \
 	axp173_charger_read_reg(client, POWER_INTSTS##x, &(stat##x));   \
 	axp173_charger_work_int##x(charger, (mask##x) & (stat##x));     \
-	axp173_charger_write_reg(client, POWER_INTSTS##x,               \
-				 (mask##x) & (stat##x))
+	axp173_charger_write_reg(client, POWER_INTSTS##x,		\
+				(mask##x) & (stat##x))
 
 	mutex_lock(&charger->lock);
 	HANDLE_IRQ(1);
@@ -843,7 +877,6 @@ axp173_charger_late_initialize(struct axp173_charger *charger)
 	return 0;
 }
 
-
 static int axp173_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -853,7 +886,6 @@ static int axp173_battery_get_property(struct power_supply *psy,
 		container_of(psy, struct axp173_charger, battery);
 
 	struct i2c_client *client = charger->axp173->client;
-	unsigned char temp;
 
 	mutex_lock(&charger->lock);
 	switch (psp) {
@@ -1151,6 +1183,38 @@ static void axp173_battery_temp_det(struct axp173_charger *charger)
 	axp173_charger_write_reg(client, POWER_VHTF_DISCHGSET,
 					charger->high_temp_dischg);
 }
+
+static void axp173_battery_temp_detect_work(struct axp173_charger *charger)
+{
+	unsigned int ts_vol;
+
+	ts_vol =  axp173_get_adc_data(charger, TS_VOL, 0);
+	AXP173_DEBUG_MSG("%s:TS_VAL = %d\n",__func__,ts_vol);
+
+	if ((charger->battery_status == POWER_SUPPLY_STATUS_CHARGING)
+		&& (ts_vol >= (charger->high_temp_chg_val +
+			TEMP_HYSTERESIS_VOLTAGE)) && (ts_vol <=
+				(charger->low_temp_chg_val -
+					TEMP_HYSTERESIS_VOLTAGE)))
+		temp_key = 0;
+	else if ((charger->battery_status != POWER_SUPPLY_STATUS_CHARGING)
+		&& (ts_vol >= (charger->high_temp_dischg_val +
+			TEMP_HYSTERESIS_VOLTAGE)) && (ts_vol <=
+				(charger->low_temp_dischg_val -
+					TEMP_HYSTERESIS_VOLTAGE)))
+		temp_key = 0;
+}
+
+static void axp173_battery_temp_work(struct work_struct *work)
+{
+	struct axp173_charger *charger = NULL;
+
+	charger = container_of(work, struct axp173_charger, temp_work.work);
+
+	axp173_battery_temp_detect_work(charger);
+
+	schedule_delayed_work(&charger->temp_work, 120 * HZ);
+}
 #endif
 static void __devinit axp173_charger_callback(struct axp173_charger *charger)
 {
@@ -1195,6 +1259,11 @@ static void __init axp173_charger_get_info(struct axp173_charger *charger)
 	charger->low_temp_dischg = battery->get_battery_low_temp_dischg(battery);
 	charger->high_temp_dischg = battery->get_battery_high_temp_dischg(battery);
 	axp173_battery_temp_det(charger);
+
+	charger->low_temp_chg_val = charger->low_temp_chg * 16 * 8 / 10;
+	charger->high_temp_chg_val = charger->high_temp_chg * 16 * 8 / 10;
+	charger->low_temp_dischg_val = charger->low_temp_dischg * 16 * 8 / 10;
+	charger->high_temp_dischg_val = charger->high_temp_dischg * 16 * 8 / 10;
 #endif
 
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
@@ -1271,6 +1340,9 @@ static int __devinit axp173_charger_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&charger->work, axp173_charger_work);
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	INIT_DELAYED_WORK(&charger->temp_work, axp173_battery_temp_work);
+#endif
 	if (gpio_request_one(pdata->gpio, GPIOF_DIR_IN, "axp173-int")) {
 		dev_err(&pdev->dev, "No irq detect pin available\n");
 		pdata->gpio = -EBUSY;
@@ -1316,6 +1388,10 @@ static int __devinit axp173_charger_probe(struct platform_device *pdev)
 	axp173_disable_charge(charger);
 #endif
 
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	schedule_delayed_work(&charger->temp_work, 10 * HZ);
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	charger->early_suspend.suspend = axp173_charger_early_suspend;
 	charger->early_suspend.resume = axp173_charger_late_resume;
@@ -1348,6 +1424,9 @@ static int __devexit axp173_charger_remove(struct platform_device *pdev)
 	struct axp173_charger *charger = platform_get_drvdata(pdev);
 
 	cancel_delayed_work_sync(&charger->work);
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	cancel_delayed_work_sync(&charger->temp_work);
+#endif
 	sysfs_remove_group(&pdev->dev.kobj, &axp173_attr_group);
 	axp173_power_supply_remove(charger);
 	free_irq(charger->irq, charger);
@@ -1385,6 +1464,7 @@ static int __init axp173_charger_late_init(void)
 {
 #if 0
 	axp173_set_poweroff_time(g_axp173_charger);
+	axp173_set_poweroff_voff(g_axp173_charger);
 #endif
 	axp173_charger_get_info(g_axp173_charger);
 	axp173_charger_late_initialize(g_axp173_charger);

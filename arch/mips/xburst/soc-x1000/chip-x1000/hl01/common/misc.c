@@ -94,13 +94,13 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 struct jz_current_battery_info youth_battery_pdata = {
         .max_vol = 4245,
         .min_vol = 3445,
-        .inter_resist = 132,
+        .inter_resist = 251,
         .sample_count = 10,
         .adc_sw_adjust = 20,
         .ac_chg_current = 340,
         .usb_chg_current = 1000,
         .suspend_current = 30,
-        .battery_max_cpt = 1000,
+        .battery_max_cpt = 663,
 #ifdef CONFIG_AXP173_BAT_TEMP_DET
 	.low_temp_chg = 0x81,
 	.high_temp_chg = 0x18,
