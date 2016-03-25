@@ -580,15 +580,6 @@ static void slcd_send_mcu_data(struct jzfb *jzfb, unsigned long data)
 	if (count < 0) {
 		dev_err(jzfb->dev, "SLCDC wait busy state wrong");
 	}
-#ifdef CONFIG_LCD_XRM2002903
-	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | (data & 0xff00) >> 8);
-	while ((reg_read(jzfb, SLCDC_STATE) & SLCDC_STATE_BUSY) && count--) {
-		udelay(10);
-	}
-	if (count < 0) {
-		dev_err(jzfb->dev, "SLCDC wait busy state wrong");
-	}
-#endif
 	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | data);
 }
 
