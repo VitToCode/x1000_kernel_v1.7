@@ -446,8 +446,8 @@ static int codec_set_replay_volume(int *val)
 	user_replay_volume = *val;
 	if (*val) {
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
-		/* use -4dB ~ -44dB */
-		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 32;
+		/* use -2dB ~ -42dB */
+		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 28;
 #else
 		/* use 0dB ~ -50dB */
 		data = 100 - *val + 24;
