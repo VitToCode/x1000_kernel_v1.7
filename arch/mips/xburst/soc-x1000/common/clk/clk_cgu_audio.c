@@ -380,7 +380,6 @@ static int cgu_audio_set_parent(struct clk *clk, struct clk *parent)
 		if(audio_selector[cgu_clks[no].sel].route[i] == get_clk_id(parent))
 			break;
 	}
-
 	if(i >= 4)
 		return -EINVAL;
 	spin_lock_irqsave(&cpm_cgu_lock,flags);
@@ -393,6 +392,7 @@ static int cgu_audio_set_parent(struct clk *clk, struct clk *parent)
 		tmp_val |= i<<30|1<<13|1;
 		cpm_outl(tmp_val,cgu_clks[no].off);
 	}
+	clk->parent = parent;
 	spin_unlock_irqrestore(&cpm_cgu_lock,flags);
 
 	return 0;
@@ -406,7 +406,6 @@ static int cgu_audio_set_rate(struct clk *clk, unsigned long rate)
 	int ret = 0;
 	if(rate == EXT_CLK){
 		cgu_audio_set_parent(clk,get_clk_from_id(CLK_ID_EXT1));
-		clk->parent = get_clk_from_id(CLK_ID_EXT1);
 		clk->rate = rate;
 		spin_lock_irqsave(&cpm_cgu_lock,flags);
 		tmp_val = cpm_inl(cgu_clks[no].off);
@@ -419,19 +418,22 @@ static int cgu_audio_set_rate(struct clk *clk, unsigned long rate)
 		spin_unlock_irqrestore(&cpm_cgu_lock,flags);
 		return 0;
 	}else{
-		ret = cgu_audio_calculate_set_rate(clk,rate,CLK_ID_APLL);
-		if (ret < 0) {
-			printk("audio_calculate_set_rate error\n");
-			return -EINVAL;
-		}
-		if(get_clk_id(clk->parent) == CLK_ID_EXT1) {
-			ret = cgu_audio_set_parent(clk,get_clk_from_id(CLK_ID_APLL));
+		/*
+		 * In X1000, we can just use APLL(1008MHZ) to generate all the I2S clk exactly.
+		 * Because the I2SCDR add the decimal divider.
+		 */
+		if(get_clk_id(clk->parent) != CLK_ID_APLL) {
+			ret = cgu_audio_set_parent(clk, get_clk_from_id(CLK_ID_APLL));
 			if (ret) {
 				printk("audio_set_parent error\n");
 				return -EINVAL;
 			}
 		}
-		clk->parent = get_clk_from_id(CLK_ID_APLL);
+		ret = cgu_audio_calculate_set_rate(clk,rate,CLK_ID_APLL);
+		if (ret < 0) {
+			printk("audio_calculate_set_rate error\n");
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
