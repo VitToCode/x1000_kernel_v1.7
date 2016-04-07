@@ -77,6 +77,11 @@ static int jz_dmic_startup(struct snd_pcm_substream *substream,
 		dev_err(dai->dev, "dmic is a capture device\n");
 		return -EINVAL;
 	}
+
+	clk_enable(jz_dmic->clk_gate_dmic);
+	regulator_enable(jz_dmic->vcc_dmic);
+	jz_dmic->vcc_en = 1;
+
 	printk("start set dmic register....\n");
 	return 0;
 }
@@ -216,17 +221,22 @@ static void jz_dmic_shutdown(struct snd_pcm_substream *substream,
 	if (!jz_dmic->dmic_mode) {
 		__dmic_disable(dev);
 	}
+	regulator_disable(jz_dmic->vcc_dmic);
+	clk_disable(jz_dmic->clk_gate_dmic);
+	jz_dmic->vcc_en = 0;
 	return;
 }
 
 static int jz_dmic_probe(struct snd_soc_dai *dai)
 {
 	struct device *dev = dai->dev;
+	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
 
+	clk_enable(jz_dmic->clk_gate_dmic);
 	/*gain: 0, ..., e*/
 	__dmic_reset(dev);
 	while(__dmic_get_reset(dev));
-	__dmic_set_sr_16k(dev);
+	__dmic_set_sr_8k(dev);
 	__dmic_enable_hpf1(dev);
 /*	__dmic_disable_hpf1(dev);*/
 	__dmic_set_gcr(dev,8);
@@ -241,6 +251,7 @@ static int jz_dmic_probe(struct snd_soc_dai *dai)
 	__dmic_set_thr_low(dev,16);
 	__dmic_enable_tri(dev);
 
+	clk_disable(jz_dmic->clk_gate_dmic);
 
 
 	return 0;
@@ -334,7 +345,7 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
-	clk_enable(jz_dmic->clk_gate_dmic);
+//	clk_enable(jz_dmic->clk_gate_dmic);
 	ret = snd_soc_register_dai(&pdev->dev, &jz_dmic_dai);
 	if (ret)
 		goto err_register_cpu_dai;
@@ -363,8 +374,8 @@ static int jz_dmic_platfom_suspend(struct platform_device *pdev, pm_message_t st
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
 	if(jz_dmic->vcc_en){
 		regulator_disable(jz_dmic->vcc_dmic);
+		clk_disable(jz_dmic->clk_gate_dmic);
 	}
-	clk_disable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
 
@@ -375,7 +386,7 @@ static int jz_dmic_platfom_resume(struct platform_device *pdev)
 	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	if(jz_dmic->vcc_en)
 		regulator_enable(jz_dmic->vcc_dmic);
-	clk_enable(jz_dmic->clk_gate_dmic);
+		clk_enable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
 #endif

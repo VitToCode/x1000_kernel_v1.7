@@ -124,7 +124,7 @@ choice
 	depends on SOC_X1000
 	config SND_ASOC_INGENIC_PHOENIX_ICDC
 	tristate "Audio support for phoenix with internal codec"
-	select SND_ASOC_DMA_V12
+	select SND_ASOC_DMA_V13
 	select SND_ASOC_JZ_AIC_I2S_V13
 	select SND_ASOC_JZ_INCODEC
 	select SND_ASOC_JZ_ICDC_D3

@@ -334,6 +334,7 @@ static void jz_i2s_start_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
+	int timeout = 150000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
@@ -348,7 +349,12 @@ static void jz_i2s_start_substream(struct snd_pcm_substream *substream,
 		__aic_clear_tur(aic);
 		dev_dbg(dai->dev, "codec fifo level1 %x\n", jz_aic_read_reg(aic, AICSR));
 		__i2s_enable_replay(aic);
-		while(!__aic_test_tur(aic));
+		while((!__aic_test_tur(aic)) && (timeout--)){
+			if(timeout == 0){
+				printk("wait tansmit fifo under run error\n");
+				return -1;
+			}
+		}
 		__i2s_enable_transmit_dma(aic);
 		__aic_clear_tur(aic);
 		if (jz_i2s_debug) __aic_en_tur_int(aic);
@@ -367,6 +373,7 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
+	int timeout = 150000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
@@ -379,7 +386,12 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 			/*hrtime mode: stop will be happen in any where, make sure there is
 			 *	no data transfer on ahb bus before stop dma
 			 */
-			while(!__aic_test_tur(aic));
+			while((!__aic_test_tur(aic)) && (timeout--)){
+				if(timeout == 0){
+					printk("wait tansmit fifo under run error\n");
+					return -1;
+				}
+			}
 		}
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
@@ -388,12 +400,16 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_receive_dma_is_enable(aic)) {
 			__i2s_disable_receive_dma(aic);
 			__aic_clear_ror(aic);
-			while(!__aic_test_ror(aic));
+			while(!__aic_test_ror(aic) && timeout--){
+				if(timeout == 0){
+					printk("wait tansmit fifo under run error\n");
+					return -1;
+				}
+			}
 		}
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
 	}
-
 	return;
 }
 
@@ -404,7 +420,6 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
 		      cmd);
-
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
@@ -570,25 +585,6 @@ static int jz_i2s_platfom_remove(struct platform_device *pdev)
 }
 
 
-#ifdef CONFIG_PM
-static int jz_i2s_platfom_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	struct device *aic = pdev->dev.parent;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
-	printk("jz aic susend!\n");
-	clk_disable(jz_aic->clk_gate);
-	return 0;
-}
-
-static int jz_i2s_platfom_resume(struct platform_device *pdev)
-{
-	struct device *aic = pdev->dev.parent;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
-	printk("jz aic resume!\n");
-	clk_enable(jz_aic->clk_gate);
-	return 0;
-}
-#endif
 static struct platform_driver jz_i2s_plat_driver = {
 	.probe  = jz_i2s_platfrom_probe,
 	.remove = jz_i2s_platfom_remove,
@@ -596,12 +592,6 @@ static struct platform_driver jz_i2s_plat_driver = {
 		.name = "jz-asoc-aic-i2s",
 		.owner = THIS_MODULE,
 	},
-#ifdef CONFIG_PM
-#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
-	.suspend = jz_i2s_platfom_suspend,
-	.resume = jz_i2s_platfom_resume,
-#endif
-#endif
 };
 
 static int jz_i2s_init(void)

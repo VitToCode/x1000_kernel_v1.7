@@ -127,8 +127,23 @@ static void dma_stop_watchdog(struct work_struct *work)
 	}
 }
 
+static size_t
+snd_pcm_get_pos_algin_period(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr -
+			(addr - substream->runtime->dma_addr)%
+			snd_pcm_lib_period_bytes(substream));
+}
+
+static size_t
+snd_pcm_get_pos(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr);
+}
+
 static void jz_asoc_dma_callback(void *data)
 {
+#if 0
 	struct snd_pcm_substream *substream = data;
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 	void* old_pos_addr = snd_pcm_get_ptr(substream, prtd->pos);
@@ -168,6 +183,44 @@ static void jz_asoc_dma_callback(void *data)
 		prtd->pos = 0;
 	snd_pcm_period_elapsed(substream);
 	return;
+#endif
+	struct snd_pcm_substream *substream = data;
+	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+	struct dma_chan *dma_chan = prtd->dma_chan;
+	dma_addr_t pdma_addr = 0;
+	size_t buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
+	size_t curr_pos = 0;
+	enum dma_data_direction direction = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+		DMA_TO_DEVICE : DMA_FROM_DEVICE;
+
+
+	pdma_addr = dma_chan->device->get_current_trans_addr(dma_chan,
+			NULL,
+			NULL,
+			direction);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		curr_pos = snd_pcm_get_pos_algin_period(substream, pdma_addr);
+		if (curr_pos == prtd->pos)
+			return -1;
+#ifdef CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
+		if (prtd->pos < curr_pos) {
+			memset(snd_pcm_get_ptr(substream, prtd->pos), 0 , (curr_pos - prtd->pos));
+		}
+		if (prtd->pos > curr_pos) {
+			memset(snd_pcm_get_ptr(substream, prtd->pos), 0, (buffer_bytes - prtd->pos));
+			memset(snd_pcm_get_ptr(substream, 0), 0, curr_pos);
+		}
+#endif
+		prtd->pos = curr_pos;
+	} else {
+		curr_pos = snd_pcm_get_pos(substream, pdma_addr);
+		if (curr_pos == prtd->pos)
+			return -1;
+		prtd->pos = curr_pos;
+	}
+	//printk(KERN_DEBUG"curr_pos = %d buffer_bytes = %d\n", curr_pos, buffer_bytes);
+
+	snd_pcm_period_elapsed(substream);
 }
 
 static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
