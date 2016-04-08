@@ -79,9 +79,13 @@ static int jz_dmic_startup(struct snd_pcm_substream *substream,
 	}
 
 	clk_enable(jz_dmic->clk_gate_dmic);
+
+#ifndef CONFIG_SND_ASOC_INGENIC_CANNA_ICDC 
 	regulator_enable(jz_dmic->vcc_dmic);
 	jz_dmic->vcc_en = 1;
-
+#else 
+	jz_dmic->vcc_en = 0;
+#endif
 	printk("start set dmic register....\n");
 	return 0;
 }
@@ -221,7 +225,10 @@ static void jz_dmic_shutdown(struct snd_pcm_substream *substream,
 	if (!jz_dmic->dmic_mode) {
 		__dmic_disable(dev);
 	}
+
+#ifndef CONFIG_SND_ASOC_INGENIC_CANNA_ICDC 
 	regulator_disable(jz_dmic->vcc_dmic);
+#endif
 	clk_disable(jz_dmic->clk_gate_dmic);
 	jz_dmic->vcc_en = 0;
 	return;
@@ -372,10 +379,9 @@ static int jz_dmic_platfom_remove(struct platform_device *pdev)
 static int jz_dmic_platfom_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
-	if(jz_dmic->vcc_en){
+	if(jz_dmic->vcc_en)
 		regulator_disable(jz_dmic->vcc_dmic);
-		clk_disable(jz_dmic->clk_gate_dmic);
-	}
+	clk_disable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
 
@@ -386,7 +392,7 @@ static int jz_dmic_platfom_resume(struct platform_device *pdev)
 	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	if(jz_dmic->vcc_en)
 		regulator_enable(jz_dmic->vcc_dmic);
-		clk_enable(jz_dmic->clk_gate_dmic);
+	clk_enable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
 #endif
