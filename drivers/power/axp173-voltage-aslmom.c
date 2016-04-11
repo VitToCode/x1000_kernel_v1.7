@@ -10,7 +10,9 @@
 #include <linux/mfd/axp173-private.h>
 #include <linux/delay.h>
 
-#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+#define INTER_RESIST1 200
+int which_battery = 0;
+
 struct ocv2soc ocv2soc[] = {
 #if 0
 	{4321, 100},
@@ -45,22 +47,23 @@ struct ocv2soc ocv2soc[] = {
 	{3628,   0},
 #endif
 };
-#else
-struct ocv2soc ocv2soc[] = {
-	{4245, 100},
-	{4125,  90},
-	{4025,  80},
-	{3965,  70},
-	{3895,  60},
-	{3865,  50},
-	{3825,  40},
-	{3795,  30},
-	{3765,  20},
-	{3685,  10},
-	{3635,   5},
-	{3445,   0},
+
+struct ocv2soc ocv2soc1[] = {
+        {4227, 100},
+        {4154,  95},
+        {4042,  88},
+        {3954,  82},
+        {3901,  75},
+        {3844,  67},
+        {3782,  60},
+        {3714,  52},
+        {3671,  45},
+        {3635,  37},
+        {3608,  30},
+        {3565,  20},
+        {3496,  10},
+        {3430,   0}
 };
-#endif
 
 static unsigned int jz_current_battery_voltage(struct jz_current_battery *battery)
 {
@@ -80,9 +83,17 @@ static unsigned int jz_current_battery_voltage(struct jz_current_battery *batter
 //	       pmu_current);
 
 	battery->real_vol = voltage;
-	voltage = pmu_charging == CHARGING_ON ? voltage -               \
-			(pmu_current * get_battery_info(battery, inter_resist) \
-			 /1000) : voltage + (pmu_current*get_battery_info(battery, inter_resist)/1000);
+	if (!which_battery) {
+		voltage = pmu_charging == CHARGING_ON ? voltage - (pmu_current		\
+				* get_battery_info(battery, inter_resist) / 1000)	\
+					: voltage + (pmu_current * get_battery_info	\
+						(battery, inter_resist) / 1000);
+	}
+	else {
+		voltage = pmu_charging == CHARGING_ON ? voltage - (pmu_current		\
+				* INTER_RESIST1 / 1000) : voltage + (pmu_current	\
+					* INTER_RESIST1 / 1000);
+	}
 	battery->battery_ocv = voltage;
 
 	mutex_unlock(&battery->lock);
@@ -137,19 +148,37 @@ static int jz_current_battery_current_cpt(unsigned int voltage)
 	int i = 0;
 	int cpt = 0;
 
-	for (; i < ARRAY_SIZE(ocv2soc); ++i)
-		if (voltage >= ocv2soc[i].vol)
-			break;
-	if (i == 0)
-		cpt = ocv2soc[i].cpt;
-	else if (i == ARRAY_SIZE(ocv2soc))
-		cpt = ocv2soc[i-1].cpt;
-	else {
-		int cpt_step = (ocv2soc[i-1].vol - ocv2soc[i].vol) /
-				(ocv2soc[i-1].cpt - ocv2soc[i].cpt);
-		int vol = ocv2soc[i-1].vol - voltage;
+	if (!which_battery) {
+		for (; i < ARRAY_SIZE(ocv2soc); ++i)
+			if (voltage >= ocv2soc[i].vol)
+				break;
+		if (i == 0)
+			cpt = ocv2soc[i].cpt;
+		else if (i == ARRAY_SIZE(ocv2soc))
+			cpt = ocv2soc[i-1].cpt;
+		else {
+			int cpt_step = (ocv2soc[i-1].vol - ocv2soc[i].vol) /
+					(ocv2soc[i-1].cpt - ocv2soc[i].cpt);
+			int vol = ocv2soc[i-1].vol - voltage;
 
-		cpt = ocv2soc[i-1].cpt - vol / cpt_step;
+			cpt = ocv2soc[i-1].cpt - vol / cpt_step;
+		}
+	}
+        else {
+		for (; i < ARRAY_SIZE(ocv2soc1); ++i)
+			if (voltage >= ocv2soc1[i].vol)
+				break;
+		if (i == 0)
+			cpt = ocv2soc1[i].cpt;
+		else if (i == ARRAY_SIZE(ocv2soc1))
+			cpt = ocv2soc1[i-1].cpt;
+		else {
+			int cpt_step = (ocv2soc1[i-1].vol - ocv2soc1[i].vol) /
+				(ocv2soc1[i-1].cpt - ocv2soc1[i].cpt);
+			int vol = ocv2soc1[i-1].vol - voltage;
+
+			cpt = ocv2soc1[i-1].cpt - vol / cpt_step;
+		}
 	}
 
 	if(cpt < 0)
@@ -429,6 +458,16 @@ static struct platform_driver jz_current_battery_driver = {
 	.resume	= jz_current_battery_resume,
 #endif
 };
+
+static int __init get_bat_param_from_cmdline(char *str)
+{
+	if (strcmp(str, "bat-4400") == 0)
+		which_battery = 1;
+
+	return 0;
+}
+
+__setup("bat_param=", get_bat_param_from_cmdline);
 
 static int __init jz_current_battery_init(void)
 {
