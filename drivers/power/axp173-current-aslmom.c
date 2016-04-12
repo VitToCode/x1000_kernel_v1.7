@@ -530,8 +530,7 @@ static void low_power_detect(struct axp173_charger *charger, int cap, int voltag
 #else
 		charging = !!(charging & (AC_AVAILABLE | USB_AVAILABLE));
 #endif
-	if((!charging && cap == 0) && (voltage < 3573) && (voltage > 3485)) {
-		charger->current_cpt = 0;
+	if (!charging && (cap == 0)) {
 		power_supply_changed(&charger->battery);
 		AXP173_DEBUG_MSG("****The capacity of battery is 0, please charge!****\n");
 	}
@@ -585,6 +584,8 @@ static void init_battery_cpy(struct axp173_charger *charger)
 		return;
 
 	charger->current_cpt = battery->get_battery_current_cpt(battery);
+	if (charger->ac_online && (charger->current_cpt == 0))
+		charger->current_cpt = 1;
 	charger->real_voltage = battery->real_vol;
 	AXP173_DEBUG_MSG("init cpt = %d\n", charger->current_cpt);
 	charger->base_cpt = charger->max_cpt * charger->current_cpt *
