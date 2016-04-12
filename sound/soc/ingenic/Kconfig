@@ -141,7 +141,7 @@ choice
 
 	config SND_ASOC_INGENIC_CANNA_ICDC
 	tristate "Audio support for canna with internal codec"
-	select SND_ASOC_DMA_V12
+	select SND_ASOC_DMA_V13
 	select SND_ASOC_JZ_AIC_I2S_V13
 	select SND_ASOC_JZ_INCODEC
 	select SND_ASOC_JZ_ICDC_D3
