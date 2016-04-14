@@ -76,6 +76,14 @@
 
 #define HOOK_ACTIVE_LEVEL       -1
 
+/* There is no AKM4345 on canna board, you should modify the code on your board */
+#ifdef CONFIG_AKM4345_EXTERNAL_CODEC
+#define GPIO_AKM4345_PDN	-1
+#define GPIO_AKM4345_CSN	-1
+#define GPIO_AKM4345_CCLK	-1
+#define GPIO_AKM4345_CDTI	-1
+#define GPIO_AKM4345_CDTO	-1
+#endif
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO LCD START****************************** */

@@ -13,4 +13,5 @@ obj-$(CONFIG_SOUND_JZ_SPDIF_V13)		+= hdmi_virual_codec.o
 obj-$(CONFIG_WM8594_CODEC_V12)			+= wm8594_codec_v12.o
 obj-$(CONFIG_AKM4753_EXTERNAL_CODEC)		+= akm4753_codec_v13.o
 obj-$(CONFIG_AKM4951_EXTERNAL_CODEC)		+= akm4951_codec_v13.o
+obj-$(CONFIG_AKM4345_EXTERNAL_CODEC)		+= akm4345_codec_v13.o
 obj-$(CONFIG_I2S_VIRUAL_EXTERNAL_CODEC) += i2s_virual_codec.o

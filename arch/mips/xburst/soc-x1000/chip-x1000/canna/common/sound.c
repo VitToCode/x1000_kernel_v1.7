@@ -53,3 +53,39 @@ struct snd_codec_data codec_data = {
 	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
 	.gpio_linein_detect = {.gpio = GPIO_LINEIN_DETECT, .active_level = GPIO_LINEIN_INSERT_LEVEL},
 };
+
+/* There is no AKM4345 on canna board, you should modify the code on your board */
+#ifdef CONFIG_AKM4345_EXTERNAL_CODEC
+static struct snd_board_gpio power_down = {
+        .gpio = GPIO_AKM4345_PDN,
+        .active_level = HIGH_ENABLE,
+};
+static struct snd_board_gpio spi_csn = {
+        .gpio = GPIO_AKM4345_CSN,
+        .active_level = LOW_ENABLE,
+};
+static struct snd_board_gpio spi_cclk = {
+        .gpio = GPIO_AKM4345_CCLK,
+        .active_level = LOW_ENABLE,
+};
+static struct snd_board_gpio spi_cdti = {
+        .gpio = GPIO_AKM4345_CDTI,
+        .active_level = LOW_ENABLE,
+};
+static struct snd_board_gpio spi_cdto = {
+        .gpio = GPIO_AKM4345_CDTO,
+        .active_level = LOW_ENABLE,
+};
+
+struct akm4345_platform_data akm4345_spi_data = {
+        .pdn = &power_down,
+	.csn = &spi_csn,
+	.cclk = &spi_cclk,
+	.cdti = &spi_cdti,
+	.cdto = &spi_cdto,
+};
+
+struct platform_device akm4345_spi_device = {
+        .name = "akm4345_spi",
+};
+#endif

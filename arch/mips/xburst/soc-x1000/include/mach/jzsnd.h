@@ -104,6 +104,19 @@ struct akm4951_platform_data {
 	struct snd_board_gpio *pdn;
 };
 #endif
+
+#ifdef CONFIG_AKM4345_EXTERNAL_CODEC
+#define LOW_ENABLE                      0
+#define HIGH_ENABLE                     1
+struct akm4345_platform_data {
+	struct snd_board_gpio *pdn;
+	struct snd_board_gpio *csn;
+	struct snd_board_gpio *cclk;
+	struct snd_board_gpio *cdti;
+	struct snd_board_gpio *cdto;
+};
+#endif
+
 /*####################################################*\
 * common, used for sound devices
 \*####################################################*/

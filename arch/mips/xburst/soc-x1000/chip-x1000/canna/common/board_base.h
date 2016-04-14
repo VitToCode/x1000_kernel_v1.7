@@ -9,6 +9,11 @@
 extern struct snd_codec_data codec_data;
 #endif
 
+#ifdef CONFIG_AKM4345_EXTERNAL_CODEC
+extern struct platform_device akm4345_spi_device;
+extern struct akm4345_platform_data akm4345_spi_data;
+#endif
+
 #ifdef CONFIG_JZMMC_V12_MMC0
 extern struct jzmmc_platform_data tf_pdata;
 #endif
