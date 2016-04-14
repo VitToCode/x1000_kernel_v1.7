@@ -10,8 +10,8 @@
 #include <linux/mfd/axp173-private.h>
 #include <linux/delay.h>
 
-#define INTER_RESIST1 200
-int which_battery = 0;
+#define INTER_RESIST1 280
+static int which_battery = 0;
 
 struct ocv2soc ocv2soc[] = {
 #if 0
@@ -51,18 +51,18 @@ struct ocv2soc ocv2soc[] = {
 struct ocv2soc ocv2soc1[] = {
         {4227, 100},
         {4154,  95},
-        {4042,  88},
-        {3954,  82},
-        {3901,  75},
-        {3844,  67},
-        {3782,  60},
-        {3714,  52},
-        {3671,  45},
-        {3635,  37},
-        {3608,  30},
-        {3565,  20},
-        {3496,  10},
-        {3430,   0}
+        {4117,  88},
+        {4042,  82},
+        {3986,  76},
+        {3954,  69},
+        {3901,  61},
+        {3844,  52},
+        {3782,  43},
+        {3714,  34},
+        {3671,  25},
+        {3652,  18},
+        {3635,  10},
+        {3608,   0},
 };
 
 static unsigned int jz_current_battery_voltage(struct jz_current_battery *battery)
@@ -461,13 +461,13 @@ static struct platform_driver jz_current_battery_driver = {
 
 static int __init get_bat_param_from_cmdline(char *str)
 {
-	if (strcmp(str, "bat-4400") == 0)
+	if (strcmp(str, "4400") == 0)
 		which_battery = 1;
 
 	return 0;
 }
 
-__setup("bat_param=", get_bat_param_from_cmdline);
+__setup("bat=", get_bat_param_from_cmdline);
 
 static int __init jz_current_battery_init(void)
 {
