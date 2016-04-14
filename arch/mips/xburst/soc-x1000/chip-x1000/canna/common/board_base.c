@@ -145,6 +145,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_mixer3_device, &snd_mixer3_data, sizeof(struct snd_dev_data)),
 #endif
 
+#ifdef CONFIG_AKM4345_EXTERNAL_CODEC
+        DEF_DEVICE(&akm4345_spi_device, &akm4345_spi_data, sizeof(struct akm4345_platform_data)),
+#endif
+
 /* JZ LCD driver */
 #ifdef CONFIG_BACKLIGHT_PWM
 	DEF_DEVICE(&backlight_device, 0, 0),
