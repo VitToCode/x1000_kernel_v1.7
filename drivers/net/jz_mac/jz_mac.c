@@ -1994,6 +1994,8 @@ static int jz_mac_probe(struct platform_device *pdev)
 
 	/* Fill in the fields of the device structure with ethernet values. */
 	ether_setup(ndev);
+	/* Set NET state NOT has carrier */
+	set_bit(__LINK_STATE_NOCARRIER, &ndev->state);
 
 	ndev->netdev_ops = &jz_mac_netdev_ops;
 	//ndev->ethtool_ops = &jz_mac_ethtool_ops;
