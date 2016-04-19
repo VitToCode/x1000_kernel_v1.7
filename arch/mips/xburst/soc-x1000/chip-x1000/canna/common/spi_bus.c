@@ -48,6 +48,101 @@ static struct mtd_partition jz_mtd_partition1[] = {
 };
 
 #endif
+
+#if defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_JZ_SFCNAND)
+#define SIZE_UBOOT  0x100000    /* 1M */
+#define SIZE_KERNEL 0x800000    /* 8M */
+#define SIZE_ROOTFS (0x100000 * 40)        /* -1: all of left */
+ 
+struct mtd_partition jz_mtd_spinand_partition[] = {
+         {
+                 .name =     "uboot",
+                 .offset =   0,
+                 .size =     SIZE_UBOOT,
+         },
+         {
+                 .name =     "kernel",
+                 .offset =   MTDPART_OFS_APPEND,
+                 .size =     SIZE_KERNEL,
+         },
+         {
+                 .name   =       "rootfs",
+                 .offset =   MTDPART_OFS_APPEND,
+                 .size   =   SIZE_ROOTFS,
+          },
+          {
+                 .name   =       "data",
+                 .offset =   MTDPART_OFS_APPEND,
+                 .size   =   MTDPART_SIZ_FULL,
+          }
+};
+static struct jz_spi_support jz_spi_nand_support_table[] = {
+         {
+                 .id_manufactory = 0xc8,
+                 .id_device = 0xd1,
+                 .name = "GD5F1GQ4UBY1G",
+                 .page_size = 2 * 1024,
+                 .oobsize = 128,
+                 .block_size = 128 * 1024,
+                 .size = 128 * 1024 * 1024,
+                 .column_cmdaddr_bits = 24,
+ 
+                 .tRD_maxbusy = 120, /* unit: ns*/
+                 .tPROG_maxbusy = 700,
+                 .tBERS_maxbusy = 5000,
+         },
+         {
+                 .id_manufactory = 0xc9,
+                 .id_device = 0x51,
+                 .name = "QPSYG01AW0A-A1",
+                 .page_size = 2 * 1024,
+                 .oobsize = 128,
+                 .block_size = 128 * 1024,
+                 .size = 128 * 1024 * 1024,
+                 .column_cmdaddr_bits = 24,
+ 
+                 .tRD_maxbusy = 120, /* unit: ns*/
+                 .tPROG_maxbusy = 700,
+                 .tBERS_maxbusy = 5000,
+         },
+         {
+                 .id_manufactory = 0xb2,
+                 .id_device = 0x48,
+                 .name = "GD5F2GQ4U",
+                 .page_size = 2 * 1024,
+                 .oobsize = 128,
+                 .block_size = 128 * 1024,
+                 .size = 256 * 1024 * 1024,
+                 .column_cmdaddr_bits = 32,
+ 
+                 .tRD_maxbusy = 120, /* unit: ns*/
+                 .tPROG_maxbusy = 700,
+                 .tBERS_maxbusy = 5000,
+         },
+         {
+                 .id_manufactory = 0xa1,
+                 .id_device = 0xe1,
+                 .name = "PN26G01AWSIUG-1Gbit",
+                 .page_size = 2 * 1024,
+                 .oobsize = 128,
+                 .block_size = 128 * 1024,
+                 .size = 128 * 1024 * 1024,
+                 .column_cmdaddr_bits = 24,
+ 
+                 .tRD_maxbusy = 240, /* unit: ns*/
+                 .tPROG_maxbusy = 1400,
+                 .tBERS_maxbusy = 10 * 1000,
+         },
+ 
+};
+struct jz_spi_nand_platform_data jz_spi_nand_data = {
+         .jz_spi_support = jz_spi_nand_support_table,
+         .num_spi_flash  = ARRAY_SIZE(jz_spi_nand_support_table),
+         .mtd_partition  = jz_mtd_spinand_partition,
+         .num_partitions = ARRAY_SIZE(jz_mtd_spinand_partition),
+};
+#endif/* defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_JZ_SFCNAND) */
+
 #if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 struct spi_nor_block_info flash_block_info[] = {
 	{
@@ -324,14 +419,25 @@ struct jz_spi_info spi0_info_cfg = {
 #endif
 
 #ifdef CONFIG_JZ_SFC
+#ifdef CONFIG_JZ_SFC_NOR
 struct jz_sfc_info sfc_info_cfg = {
-	.chnl = 0,
-	.bus_num = 0,
-	.num_chipselect = 1,
-	.board_info = spi_nor_pdata,
-	.board_info_size = ARRAY_SIZE(spi_nor_pdata),
+         .chnl = 0,
+         .bus_num = 0,
+         .num_chipselect = 1,
+         .board_info = spi_nor_pdata,
+         .board_info_size = ARRAY_SIZE(spi_nor_pdata),
+};
+#elif defined(CONFIG_JZ_SFCNAND)
+struct jz_sfc_info sfc_info_cfg = {
+         .chnl = 0,
+         .bus_num = 0,
+         .num_chipselect = 1,
+         .board_info = &jz_spi_nand_data,
 };
 #endif
+#endif  /* CONFIG_JZ_SFC */
+
+
 #ifdef CONFIG_SPI_GPIO
 static struct spi_gpio_platform_data jz_spi_gpio_data = {
 
