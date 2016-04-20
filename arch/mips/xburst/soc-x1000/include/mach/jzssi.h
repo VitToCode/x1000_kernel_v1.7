@@ -48,6 +48,7 @@
 #define TRAN_SPI_QUAD   (0x5 )
 #define TRAN_SPI_IO_QUAD   (0x6 )
 
+#define SPIFLASH_PARAMER_OFFSET 0x3c00
 
 struct sfc_nor_info {
 	u8 cmd;
@@ -132,6 +133,19 @@ struct jz_sfc_info {
 	u32  board_info_size;
 };
 
+struct jz_sfc_nand_info{
+         u8      chnl;                           /* the chanel of SSI controller */
+         u16     bus_num;                        /* spi_master.bus_num */
+         unsigned is_pllclk:1;                   /* source clock: 1---pllclk;0---exclk */
+         unsigned long   board_size;             /* spi_master.num_chipselect */
+         u32      num_chipselect;
+         u32      allow_cs_same;
+         void  *board_info;
+         u32  board_info_size;
+};
+#define SPL_TYPE_FLAG_LEN 6
+
+
 #define SIZEOF_NAME         32
 struct jz_spi_support {
 	u8 id_manufactory;
@@ -153,6 +167,38 @@ struct jz_spi_support {
 
 	unsigned short column_cmdaddr_bits;/* read from cache ,the bits of cmd + addr */
 
+};
+
+struct jz_spi_support_from_burner {
+         unsigned int chip_id;
+         unsigned char id_device;
+         char name[32];
+         int page_size;
+         int oobsize;
+         int sector_size;
+         int block_size;
+         int size;
+         int page_num;
+         uint32_t tRD_maxbusy;
+         uint32_t tPROG_maxbusy;
+         uint32_t tBERS_maxbusy;
+         unsigned short column_cmdaddr_bits;
+ 
+};
+struct jz_spinand_partition {
+         char name[32];         /* identifier string */
+         uint32_t size;          /* partition size */
+         uint32_t offset;        /* offset within the master MTD space */
+         u_int32_t mask_flags;       /* master MTD flags to mask out for this partition */
+         u_int32_t manager_mode;         /* manager_mode mtd or ubi */
+};
+struct get_chip_param {
+         int version;
+         int flash_type;
+         int para_num;
+         struct jz_spi_support_from_burner *addr;
+         int partition_num;
+         struct jz_spinand_partition *partition;
 };
 
 struct jz_spi_nand_platform_data {
