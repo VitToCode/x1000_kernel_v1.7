@@ -1,38 +1,30 @@
 #include <linux/platform_device.h>
-
 #include <linux/input.h>
 #include <mach/jzgpio_keys.h>
 #include <linux/input/matrix_keypad.h>
-#include "board_base.h"
+#include "board.h"
 
 #ifdef CONFIG_KEYBOARD_MATRIX
 
-#define KEY_R0 GPIO_PB(3)
-#define KEY_R1 GPIO_PB(2)
 #define KEY_R2 GPIO_PB(1)
 #define KEY_R3 GPIO_PB(0)
-
-#define KEY_C0 GPIO_PB(24)
-#define KEY_C1 GPIO_PB(23)
 #define KEY_C2 GPIO_PB(4)
 
-static const unsigned int matrix_keypad_cols[] = {KEY_C0,KEY_C1,KEY_C2};
-static const unsigned int matrix_keypad_rows[] = {KEY_R0,KEY_R1,KEY_R2,KEY_R3};
+#define KEY_R0 GPIO_PB(3)
+#define KEY_R1 GPIO_PB(2)
+
+static const unsigned int matrix_keypad_rows[] = {KEY_R0, KEY_R1};
+static const unsigned int matrix_keypad_cols[] = {KEY_R2, KEY_R3, KEY_C2};
+
 static uint32_t canna_keymap[] =
 {
 	//KEY(row, col, keycode)
 	KEY(0,0, KEY_MODE),		/* AP/STA */
 	KEY(0,1, KEY_F1),		/* AIRKISS */
-	KEY(0,2, KEY_WAKEUP),
+	KEY(0,2, KEY_RECORD),
 	KEY(1,0, KEY_VOLUMEDOWN),
 	KEY(1,1, KEY_VOLUMEUP),
 	KEY(1,2, KEY_PLAYPAUSE),
-	KEY(2,0, KEY_PREVIOUSSONG),
-	KEY(2,1, KEY_NEXTSONG),
-	KEY(2,2, KEY_MENU),
-	KEY(3,0, KEY_F3), 		/* music shortcut key 1 */
-	KEY(3,1, KEY_BLUETOOTH),
-	KEY(3,2, KEY_RECORD),
 };
 
 static struct matrix_keymap_data canna_keymap_data =
