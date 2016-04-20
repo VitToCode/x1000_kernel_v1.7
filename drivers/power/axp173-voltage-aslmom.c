@@ -49,7 +49,6 @@ struct ocv2soc ocv2soc[] = {
 };
 
 struct ocv2soc ocv2soc1[] = {
-#if 0
         {4227, 100},
         {4154,  95},
         {4117,  88},
@@ -64,19 +63,6 @@ struct ocv2soc ocv2soc1[] = {
         {3652,  18},
         {3635,  10},
         {3608,   0},
-#else
-	{4227, 100},
-	{4154,  90},
-	{4117,  80},
-	{4042,  70},
-	{3986,  60},
-	{3954,  50},
-	{3901,  40},
-	{3871,  30},
-	{3844,  20},
-	{3814,  10},
-	{3782,   0},
-#endif
 };
 
 static unsigned int jz_current_battery_voltage(struct jz_current_battery *battery)
