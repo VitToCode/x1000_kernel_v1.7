@@ -619,8 +619,8 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 {
 	/* write the unit outside the txfifo zero when underrun happen, just for anti pop. */
-	__i2s_play_zero(i2s_dev);
 	__i2s_enable_replay(i2s_dev);
+	__i2s_play_zero(i2s_dev);
 	mdelay(2);
 	__i2s_disable_replay(i2s_dev);
 }
@@ -631,9 +631,13 @@ static int i2s_disable_channel(struct i2s_device *i2s_dev, int mode)
 	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (mode & CODEC_WMODE) {
 		i2s_replay_zero_for_flush_codec(i2s_dev);
+		__i2s_flush_tfifo(i2s_dev);
+		mdelay(1);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_record(i2s_dev);
+		__i2s_flush_rfifo(i2s_dev);
+		mdelay(1);
 	}
 	if (cur_codec) {
 		codec_ctrl(cur_codec, CODEC_TURN_OFF,mode);
@@ -649,15 +653,11 @@ static int i2s_dma_enable(struct i2s_device * i2s_dev, int mode)		//CHECK
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-		__i2s_flush_tfifo(i2s_dev);
-		mdelay(1);
 		codec_ctrl(cur_codec, CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma(i2s_dev);
 		__i2s_enable_replay(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
-		__i2s_flush_rfifo(i2s_dev);
-		mdelay(1);
 		codec_ctrl(cur_codec, CODEC_ADC_MUTE,0);
 		/* read the first sample and ignore it */
 		val = __i2s_read_rfifo(i2s_dev);
@@ -1354,7 +1354,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__i2s_send_rfirst(i2s_dev);
 
 	/* play zero or last sample when underflow */
-	__i2s_play_lastsample(i2s_dev);
+	__i2s_play_zero(i2s_dev);
 	__i2s_enable(i2s_dev);
 
 	printk("i2s init success.\n");
