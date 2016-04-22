@@ -1370,6 +1370,9 @@ static int __devinit axp173_charger_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, charger);
 	mutex_init(&charger->lock);
 
+	/* because of cloner1.0 disable charge,so */
+	axp173_enable_charge(charger);
+
 	ret = axp173_charger_initialize(charger);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to init axp173, ret = %d\n", ret);
