@@ -414,7 +414,7 @@ struct jz_spi_info spi0_info_cfg = {
 	.max_clk = 54000000,
 	.num_chipselect = 1,
 	.allow_cs_same  = 1,
-	.chipselect     = {GPIO_PA(27),GPIO_PA(27)},
+	.chipselect     = {GPIO_PA(25),GPIO_PA(25)},
 };
 #endif
 

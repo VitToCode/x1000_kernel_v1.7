@@ -221,7 +221,8 @@ static int __init board_base_init(void)
 		platform_device_register(platform_devices_array[i].pdevices);
 	}
 
-#if (defined(CONFIG_JZ_SPI0) || defined(CONFIG_SPI_GPIO))
+#if (defined(CONFIG_JZ_SPI0) && defined(CONFIG_MTD_JZ_SPI_NORFLASH)) || \
+	(defined(CONFIG_SPI_GPIO) && defined(CONFIG_MTD_JZ_SPI_NORFLASH))
 	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
 #endif
 

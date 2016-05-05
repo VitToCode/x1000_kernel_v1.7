@@ -46,7 +46,7 @@
 	{ .name = "sfc", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x3f << 26, }
 /****************************************************************************************/
 #define SSI0_PORTA							\
-       { .name = "ssi0-pa", .port = GPIO_PORT_A, .func = GPIO_FUNC_2, .pins = 0xd << 26, }
+       { .name = "ssi0-pa", .port = GPIO_PORT_A, .func = GPIO_FUNC_2, .pins = 0x7 << 22, }
 /****************************************************************************************/
 #define I2C0_PORTB							\
 	{ .name = "i2c0", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x3 << 23, }
