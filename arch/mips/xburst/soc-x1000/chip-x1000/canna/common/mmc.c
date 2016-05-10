@@ -19,6 +19,10 @@ int bcm_ap6212_wlan_init(void);
 int bcm_ap6212_manual_sysfs_init(struct device *dev);
 #endif
 
+#ifdef CONFIG_RTL8189FS
+int rtw_8189fs_wlan_init(void);
+#endif
+
 #ifdef CONFIG_BCMDHD_43455
 int bcm_ap6255_wlan_init(void);
 int bcm_ap6255_manual_sysfs_init(struct device *dev);
@@ -81,6 +85,9 @@ struct jzmmc_platform_data sdio_pdata = {
 #ifdef CONFIG_BCMDHD_43455
 	.private_init			= bcm_ap6255_wlan_init,
 	.manual_sysfs_init              = bcm_ap6255_manual_sysfs_init,
+#endif
+#ifdef CONFIG_RTL8189FS
+	.private_init			= rtw_8189fs_wlan_init,
 #endif
 };
 #endif

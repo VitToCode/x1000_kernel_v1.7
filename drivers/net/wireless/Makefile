@@ -11,7 +11,7 @@ obj-$(CONFIG_AIRO)		+= airo.o
 obj-$(CONFIG_AIRO_CS)		+= airo_cs.o airo.o
 
 obj-$(CONFIG_ATMEL)             += atmel.o
-obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
+obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o
 obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
 
 obj-$(CONFIG_AT76C50X_USB)      += at76c50x-usb.o
@@ -70,4 +70,5 @@ obj-$(CONFIG_BCMDHD_1_141_66)   += bcmdhd_1_141_66/
 obj-$(CONFIG_BCMDHD_43455)   += bcmdhd_43455/
 obj-$(CONFIG_RTL8188EU)  += wifi_power.o
 obj-$(CONFIG_SSV6XXX)	+= ssv6xxx/
+obj-$(CONFIG_RTL8189FS)	+= rtl8189fs/
 
