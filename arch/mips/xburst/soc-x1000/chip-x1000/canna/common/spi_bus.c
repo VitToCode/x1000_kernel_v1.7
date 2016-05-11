@@ -182,13 +182,13 @@ struct spi_quad_mode  flash_quad_mode[] = {
         },
         {
 		.RDSR_CMD = CMD_RDSR_1,
-		.WRSR_CMD = CMD_WRSR,
+		.WRSR_CMD = CMD_WRSR_1,
 		.RDSR_DATE = 0x20,//the data is write the spi status register for QE bit
 		.RD_DATE_SIZE = 1,
-		.WRSR_DATE = 0x200,//this bit should be the flash QUAD mode enable
-		.WD_DATE_SIZE = 2,
-		.cmd_read = CMD_QUAD_READ,
-		.sfc_mode = TRAN_SPI_QUAD,
+		.WRSR_DATE = 0x02,//this bit should be the flash QUAD mode enable
+		.WD_DATE_SIZE = 1,
+		.cmd_read = CMD_QUAD_IO_FAST_READ,
+		.sfc_mode = TRAN_SPI_IO_QUAD,
         },
 	{
 		.RDSR_CMD = CMD_RDSR,
