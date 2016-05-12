@@ -76,9 +76,10 @@ config JZ_SFC
 config JZ_SFC_NOR
          tristate "Ingenic JZ SFC nor"
          depends on JZ_SFC
+         default y
          help
                 SFC driver for Ingenic JZ sfc nor
- 
+
 config JZ_SFCNAND
          tristate "Ingenic JZ SFC nand"
          depends on JZ_SFC
