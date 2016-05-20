@@ -31,7 +31,9 @@
 #endif
 #include "../xb47xx_i2s_v13.h"
 
-#define DEFAULT_REPLAY_SAMPLE_RATE   44100
+//#define AEC_ENABLE    1
+
+#define DEFAULT_REPLAY_SAMPLE_RATE   48000
 #define AKM4951_EXTERNAL_CODEC_CLOCK 24000000
 //#define CODEC_MODE  CODEC_SLAVE
 #define CODEC_MODE  CODEC_MASTER
@@ -66,7 +68,7 @@ unsigned char akm4951_registers[][2] = {
 	{ 0x03 ,0x00 },
 	{ 0x04 ,0x04 },
 	{ 0x05 ,0x7b },
-	{ 0x06 ,0x0f },	 //44.1KHZ sample rate
+	{ 0x06 ,0x0b },	 //48KHZ sample rate
 	{ 0x07 ,0x00 },
 	{ 0x08 ,0x00 },
 	{ 0x09 ,0x00 },
@@ -240,6 +242,11 @@ static int codec_set_replay_rate(unsigned long *rate)
 		0, 1, 2, 9, 5,
 		7, 10,11,15
 	};
+
+#ifdef AEC_ENABLE
+	/* If defined AEC_ENABLE, we should only support integer times of 16KHZ sample rate. */
+	*rate = DEFAULT_REPLAY_SAMPLE_RATE;
+#endif
 	for (i = 0; i < 9; i++) {
 		if (*rate == mrate[i])
 			break;
@@ -311,9 +318,10 @@ static int codec_set_device(enum snd_device_t device)
 			data |= 0x3;
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
-			/* fix to 44100 sample rate */
+			/* fix to 48000 sample rate */
 			akm4951_i2c_read_reg(0x06, &data, 1);
-			data |= 0xf;
+			data &= 0xf0;
+			data |= 0x0b;
 			akm4951_i2c_write_regs(0x06, &data, 1);
 			msleep(5);
 			if (user_replay_volume) {
@@ -340,7 +348,7 @@ static int codec_set_replay_channel(int* channel)
 
 static int codec_set_record_channel(int* channel)
 {
-	*channel = (*channel >= 2) + 1;
+	*channel = 2;
 
 	return 0;
 }
@@ -599,6 +607,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			 * Record sample rate is follow the replay sample rate. Here set is invalid.
 			 * Because record and replay i2s use the same BCLK and SYNC pin.
 			*/
+			*(unsigned long*)arg = user_replay_rate;
 			break;
 
 		case CODEC_SET_REPLAY_DATA_WIDTH:
