@@ -19,8 +19,8 @@ static const unsigned int matrix_keypad_cols[] = {KEY_R2, KEY_R3, KEY_C2};
 static uint32_t canna_keymap[] =
 {
 	//KEY(row, col, keycode)
-	KEY(0,0, KEY_MODE),		/* AP/STA */
-	KEY(0,1, KEY_F1),		/* AIRKISS */
+	KEY(0,0, KEY_MODE),
+	KEY(0,1, KEY_MENU),
 	KEY(0,2, KEY_RECORD),
 	KEY(1,0, KEY_VOLUMEDOWN),
 	KEY(1,1, KEY_VOLUMEUP),
@@ -89,10 +89,10 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 	{
                 .gpio                           = GPIO_BOOT_SEL1,
                 .code = {
-                        .shortpress_code        = KEY_F5,
+                        .shortpress_code        = KEY_F3,
                         .longpress_code         = KEY_RESERVED,
                 },
-                .desc                           = "music Shortcut key 3",
+                .desc                           = "music Shortcut key 1",
                 .active_low                     = ACTIVE_LOW_F5,
                 .longpress_interval             = 0,
                 .debounce_interval              = 2,
