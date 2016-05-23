@@ -552,6 +552,9 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_TURN_OFF:
+			if (arg & CODEC_RMODE)
+				break;
+
 			if (user_linein_state == 0) {
 				gpio_disable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
