@@ -125,6 +125,12 @@ if JZ_EXTERNAL_CODEC_V13 #external codec
         help
                 Say "Y" to enable akm4951 external codec
 
+	config AKM4951_AEC_MODE
+        bool "switch akm4951 to AEC mode"
+	depends on AKM4951_EXTERNAL_CODEC
+        help
+                Say "Y" to switch akm4951 to AEC mode
+
 	config AKM4345_EXTERNAL_CODEC
         bool "akm4345 external codec"
         help

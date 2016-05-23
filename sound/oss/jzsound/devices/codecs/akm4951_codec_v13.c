@@ -31,8 +31,6 @@
 #endif
 #include "../xb47xx_i2s_v13.h"
 
-//#define AEC_ENABLE    1
-
 #define DEFAULT_REPLAY_SAMPLE_RATE   48000
 #define AKM4951_EXTERNAL_CODEC_CLOCK 24000000
 //#define CODEC_MODE  CODEC_SLAVE
@@ -243,8 +241,8 @@ static int codec_set_replay_rate(unsigned long *rate)
 		7, 10,11,15
 	};
 
-#ifdef AEC_ENABLE
-	/* If defined AEC_ENABLE, we should only support integer times of 16KHZ sample rate. */
+#ifdef CONFIG_AKM4951_AEC_MODE
+	/* Here we should only support integer times of 16KHZ sample rate. */
 	*rate = DEFAULT_REPLAY_SAMPLE_RATE;
 #endif
 	for (i = 0; i < 9; i++) {
@@ -348,8 +346,11 @@ static int codec_set_replay_channel(int* channel)
 
 static int codec_set_record_channel(int* channel)
 {
+#ifdef CONFIG_AKM4951_AEC_MODE
 	*channel = 2;
-
+#else
+	*channel = (*channel >= 2) + 1;
+#endif
 	return 0;
 }
 
@@ -581,6 +582,9 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_ANTI_POP:
+			if (arg & CODEC_RMODE)
+				break;
+
 			if (user_replay_volume) {
 				gpio_enable_spk_en();
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM

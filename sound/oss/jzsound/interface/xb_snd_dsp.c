@@ -2180,7 +2180,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt);
 					mutex_unlock(&dp->mutex);
 				}
-				if (!ret)
+				if (ret)
 					break;
 			} else if (file->f_mode & FMODE_READ) {
 				dp = endpoints->in_endpoint;
@@ -2193,47 +2193,47 @@ long xb_snd_dsp_ioctl(struct file *file,
 					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt);
 					mutex_unlock(&dp->mutex);
 				}
-				if (!ret)
+				if (ret)
 					break;
 			} else {
 				ret = -EPERM;
 				goto EXIT_IOCTRL;
 			}
-		}
-
-		/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
-		   if opend as O_RDWR, only replay format will be set */
-		if (file->f_mode & FMODE_WRITE) {
-			/* set format */
-			dp = endpoints->out_endpoint;
-			if (ddata->dev_ioctl) {
-				mutex_lock(&dp->mutex);
-				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
-				mutex_unlock(&dp->mutex);
-			} else if(ddata->dev_ioctl_2) {
-				mutex_lock(&dp->mutex);
-				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
-				mutex_unlock(&dp->mutex);
-			}
-			if (!ret)
-				break;
-		} else if (file->f_mode & FMODE_READ) {
-			/* set format */
-			dp = endpoints->in_endpoint;
-			if (ddata->dev_ioctl) {
-				mutex_lock(&dp->mutex);
-				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
-				mutex_unlock(&dp->mutex);
-			} else if(ddata->dev_ioctl_2) {
-				mutex_lock(&dp->mutex);
-				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
-				mutex_unlock(&dp->mutex);
-			}
-			if (!ret)
-				break;
 		} else {
-			ret = -EPERM;
-			goto EXIT_IOCTRL;
+			/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
+			   if opend as O_RDWR, only replay format will be set */
+			if (file->f_mode & FMODE_WRITE) {
+				/* set format */
+				dp = endpoints->out_endpoint;
+				if (ddata->dev_ioctl) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				} else if(ddata->dev_ioctl_2) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				}
+				if (ret)
+					break;
+			} else if (file->f_mode & FMODE_READ) {
+				/* set format */
+				dp = endpoints->in_endpoint;
+				if (ddata->dev_ioctl) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				} else if(ddata->dev_ioctl_2) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				}
+				if (ret)
+					break;
+			} else {
+				ret = -EPERM;
+				goto EXIT_IOCTRL;
+			}
 		}
 		ret = put_user(fmt, (int *)arg);
 		break;
