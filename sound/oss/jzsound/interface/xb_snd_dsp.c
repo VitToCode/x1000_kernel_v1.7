@@ -406,6 +406,12 @@ static void snd_release_node(struct dsp_pipe *dp)
 		return;
 	}
 
+	if (dp->save_node != NULL) {
+		put_free_dsp_node(dp, dp->save_node);
+		dp->save_node = NULL;
+	} else
+		while(!pop_dma_node_to_free(dp));
+
 	while(1) {
 		node = NULL;
 		node = get_use_dsp_node(dp);
@@ -413,12 +419,6 @@ static void snd_release_node(struct dsp_pipe *dp)
 			break;
 		put_free_dsp_node(dp, node);
 	};
-
-	if (dp->save_node != NULL) {
-		put_free_dsp_node(dp, dp->save_node);
-		dp->save_node = NULL;
-	} else
-		while(!pop_dma_node_to_free(dp));
 
 	free_count = get_free_dsp_node_count(dp);
 
