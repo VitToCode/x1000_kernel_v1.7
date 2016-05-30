@@ -274,6 +274,10 @@ static int codec_set_replay_rate(unsigned long *rate)
 		6, 7, 10,11,14,15
 	};
 
+#ifdef CONFIG_AKM4753_AEC_MODE
+        /* Here we should only support integer times of 16KHZ sample rate. */
+        *rate = DEFAULT_REPLAY_SAMPLE_RATE;
+#endif
 	for (i = 0; i < 12; i++) {
 		if (*rate == mrate[i])
 			break;
@@ -326,9 +330,10 @@ static int codec_set_device(enum snd_device_t device)
 			data &= 0xf0;
 			akm4753_i2c_write_regs(0x01, &data, 1);
 			msleep(5);
-			/* fix to 44100 sample rate */
+			/* fix to 48000 sample rate */
 			akm4753_i2c_read_reg(0x02, &data, 1);
-			data |= 0xf0;
+			data &= 0x0f;
+			data |= 0xb0;
 			akm4753_i2c_write_regs(0x02, &data, 1);
 			msleep(5);
 			gpio_enable_spk_en();
@@ -353,8 +358,11 @@ static int codec_set_replay_channel(int* channel)
 
 static int codec_set_record_channel(int* channel)
 {
-	*channel = (*channel >= 2) + 1;
-
+#ifdef CONFIG_AKM4753_AEC_MODE
+        *channel = 2;
+#else
+        *channel = (*channel >= 2) + 1;
+#endif
 	return 0;
 }
 
@@ -396,7 +404,7 @@ static int codec_clk_setup(void)
 	int ret = 0;
 	char data = 0x0;
 	/* I2S clk setup */
-	data = 0xf7;
+	data = 0xb7;
 	ret |= akm4753_i2c_write_regs(0x02, &data, 1);
 	data = 0xc3;
 	ret |= akm4753_i2c_write_regs(0x03, &data, 1);
@@ -547,6 +555,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_TURN_OFF:
+			if (arg & CODEC_RMODE)
+                                break;
 			break;
 
 		case CODEC_SHUTDOWN:
@@ -565,6 +575,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_ANTI_POP:
+			if (arg & CODEC_RMODE)
+                                break;
 			break;
 
 		case CODEC_SET_DEFROUTE:
@@ -586,6 +598,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			 * Record sample rate is follow the replay sample rate. Here set is invalid.
 			 * Because record and replay i2s use the same BCLK and SYNC pin.
 			*/
+			*(unsigned long*)arg = user_replay_rate;
 			break;
 
 		case CODEC_SET_REPLAY_DATA_WIDTH:
