@@ -39,7 +39,6 @@ static LIST_HEAD(codecs_head);
 struct snd_switch_data switch_data;
 static struct platform_device xb47xx_i2s_switch;
 
-
 static struct i2s_device * g_i2s_dev;
 
 extern void codec_irq_set_mask(struct codec_info *codec_dev);
@@ -1141,6 +1140,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 
 	struct i2s_device * i2s_dev = (struct i2s_device *)dev_id;
 	/* check the irq source */
+	disable_irq_nosync(irq);
 
 	/* if irq source is codec, call codec irq handler */
 #ifdef CONFIG_JZ_INTERNAL_CODEC_V13
@@ -1151,8 +1151,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 	}
 #endif
 	/* if irq source is aic, process it here */
-
-	/*noting to do*/
+	schedule_work(&i2s_dev->aic_work);
 
 	return ret;
 }
@@ -1184,6 +1183,20 @@ static int i2s_init_pipe_2(struct dsp_pipe *dp, enum dma_data_direction directio
 		return -1;
 
 	return 0;
+}
+
+static void aic_fifo_work(struct work_struct *aic_work)
+{
+	struct i2s_device *i2s_dev = (struct i2s_device *)container_of(aic_work, struct i2s_device, aic_work);
+	if (__i2s_test_ror(i2s_dev)){
+		__i2s_clear_ror(i2s_dev);
+		printk("\nRX fifo over run\n");
+	}
+	if (__i2s_test_tur(i2s_dev)){
+		__i2s_clear_tur(i2s_dev);
+		printk("\nTX fifo under run\n");
+	}
+	enable_irq(i2s_dev->i2s_irq);
 }
 
 static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data *switch_data)
@@ -1272,6 +1285,8 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 #else
 //	dev_info("WARNING: unless one codec must be select for i2s.\n");
 #endif
+	/* AIC FIFO overrun and underrun irq work */
+	INIT_WORK(&i2s_dev->aic_work, aic_fifo_work);
 
 	if(!i2s_dev->cur_codec) {
 		printk("err: no codec matched!\n");
@@ -1347,13 +1362,18 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__i2s_clear_tur(i2s_dev);
 	__i2s_set_receive_trigger(i2s_dev, 3);
 	__i2s_set_transmit_trigger(i2s_dev, 4);
+	/* You can enable overrun and underrun intr for test.*/
 	__i2s_disable_overrun_intr(i2s_dev);
 	__i2s_disable_underrun_intr(i2s_dev);
 	__i2s_disable_transmit_intr(i2s_dev);
 	__i2s_disable_receive_intr(i2s_dev);
 	__i2s_send_rfirst(i2s_dev);
 
-	/* play zero or last sample when underflow */
+	/* 
+	 * Play zero sample when TX fifo underflow. 
+	 * This is important for some external codec.
+	 * If play last sample, here maybe a POP sound when adjust volume.
+	 */
 	__i2s_play_zero(i2s_dev);
 	__i2s_enable(i2s_dev);
 

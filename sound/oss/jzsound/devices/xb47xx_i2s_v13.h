@@ -49,6 +49,7 @@ struct i2s_device {
 
 	struct workqueue_struct *i2s_work_queue_1;
 	struct work_struct i2s_work;
+	struct work_struct aic_work;
 	unsigned int ioctl_cmd;
 	unsigned long ioctl_arg;
 
