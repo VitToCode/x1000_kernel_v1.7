@@ -262,7 +262,6 @@ struct dsp_pipe {
 	struct list_head    free_node_list;
 	struct list_head    use_node_list;
 	struct list_head	dma_node_list;
-	struct dsp_node     *save_node;
 	wait_queue_head_t   wq;
 	atomic_t			avialable_couter;
 

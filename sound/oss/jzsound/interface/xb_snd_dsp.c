@@ -111,6 +111,25 @@ static struct dsp_node *push_used_node_to_dma(struct dsp_pipe *dp)
 	return node;
 }
 
+static struct dsp_node *push_free_node_to_dma(struct dsp_pipe *dp)
+{
+        unsigned long lock_flags;
+        struct dsp_node *node = NULL;
+        struct list_head *phead_d = &dp->dma_node_list;
+        struct list_head *phead_f = &dp->free_node_list;
+
+        spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+        if (list_empty(phead_f)) {
+                spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+                return NULL;
+        }
+        node = list_entry(phead_f->next, struct dsp_node, list);
+        list_del(phead_f->next);
+        list_add_tail(&node->list,phead_d);
+        spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+        return node;
+}
+
 static int pop_dma_node_to_free(struct dsp_pipe *dp)
 {
 	unsigned long lock_flags;
@@ -129,6 +148,26 @@ static int pop_dma_node_to_free(struct dsp_pipe *dp)
 	list_add_tail(&node->list,phead_f);
 	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
 	return 0;
+}
+
+static int pop_dma_node_to_use(struct dsp_pipe *dp)
+{
+        unsigned long lock_flags;
+        struct dsp_node *node = NULL;
+        struct list_head *phead_d = &dp->dma_node_list;
+        struct list_head *phead_u = &dp->use_node_list;
+        spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+        if (list_empty(phead_d)) {
+                spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+                return -1;
+        }
+        node = list_entry(phead_d->next, struct dsp_node, list);
+        list_del(phead_d->next);
+        node->start = 0;
+        node->end += node->size;
+        list_add_tail(&node->list, phead_u);
+        spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+        return 0;
 }
 
 static int pop_back_dma_node_to_use_head(struct dsp_pipe *dp)
@@ -150,11 +189,38 @@ static int pop_back_dma_node_to_use_head(struct dsp_pipe *dp)
 	return 0;
 }
 
+static int pop_back_dma_node_to_free_head(struct dsp_pipe *dp)
+{
+        unsigned long lock_flags;
+        struct dsp_node *node = NULL;
+        struct list_head *phead_d = &dp->dma_node_list;
+        struct list_head *phead_f = &dp->free_node_list;
+
+        spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+        if (list_empty(phead_d)) {
+                spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+                return -1;
+        }
+        node = list_entry(phead_d->prev, struct dsp_node, list);
+        list_del(phead_d->prev);
+        list_add(&node->list, phead_f);
+        spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+        return 0;
+}
+
 static struct dsp_node *get_use_dsp_node_info(struct dsp_pipe *dp)
 {
 	struct list_head *phead = &dp->use_node_list;
 	if (list_empty(phead))
-		return NULL	;
+		return NULL;
+	return list_entry(phead->next, struct dsp_node, list);
+}
+
+static struct dsp_node *get_free_dsp_node_info(struct dsp_pipe *dp)
+{
+        struct list_head *phead = &dp->free_node_list;
+        if (list_empty(phead))
+                return NULL;
 	return list_entry(phead->next, struct dsp_node, list);
 }
 
@@ -296,6 +362,41 @@ delete_program:
 	return i;
 }
 
+static int  put_used_dma_node_use(struct dsp_pipe *dp,uint32_t node_base)
+{
+        unsigned long lock_flags;
+        struct list_head *phead_d = &dp->dma_node_list;
+        struct list_head *phead_u = &dp->use_node_list;
+        struct dsp_node *pos = NULL;
+        struct dsp_node *tmp = NULL;
+        int i = 0;
+
+        if (list_empty(phead_d)) {
+                return i;
+        }
+        spin_lock_irqsave(&dp->pipe_lock,lock_flags);
+        list_for_each_entry(pos,phead_d,list) {
+                if (pos->phyaddr == node_base)
+                        goto delete_program;
+        }
+        spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
+        return i;
+
+delete_program:
+        list_for_each_entry_safe(pos,tmp,phead_d,list) {
+                if (pos->phyaddr == node_base)
+                        break;
+                list_del(&pos->list);
+                pos->start = 0;
+                pos->end += pos->size;
+                list_add_tail(&pos->list, phead_u);
+                atomic_inc(&dp->avialable_couter);
+                i++;
+        }
+        spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
+	return i;
+}
+
 /********************************************************\
  * dma
 \********************************************************/
@@ -406,11 +507,7 @@ static void snd_release_node(struct dsp_pipe *dp)
 		return;
 	}
 
-	if (dp->save_node != NULL) {
-		put_free_dsp_node(dp, dp->save_node);
-		dp->save_node = NULL;
-	} else
-		while(!pop_dma_node_to_free(dp));
+	while(!pop_dma_node_to_free(dp));
 
 	while(1) {
 		node = NULL;
@@ -443,7 +540,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 	/* turn the dsp_node to dma desc */
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
 		dp->sg_len = 0;
-		while ((dp->sg_len != dp->fragcnt-1)) {
+		while (dp->sg_len != dp->fragcnt-1) {
 			if ((node = push_used_node_to_dma(dp)) == NULL)
 				break;
 			sg_dma_address(&dp->sg[dp->sg_len]) = node->phyaddr;
@@ -462,21 +559,22 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 								  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
 			while (dp->sg_len-- || !pop_back_dma_node_to_use_head(dp));
+			printk("device_prep_slave_sg failed %d\n", __LINE__);
 			return -EFAULT;
 		}
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
-		node = get_free_dsp_node(dp);
-		if (!node) {
+		dp->sg_len = 0;
+		while (dp->sg_len != dp->fragcnt-1) {
+			if ((node = push_free_node_to_dma(dp)) == NULL)
+				break;
+			sg_dma_address(&dp->sg[dp->sg_len]) = node->phyaddr;
+			sg_dma_len(&dp->sg[dp->sg_len]) = node->size;
+			dp->sg_len++;
+		}
+		if (!dp->sg_len) {
 			printk("free: %d, user: %d\n", get_free_dsp_node_count(dp), get_use_dsp_node_count(dp));
 			return -ENOMEM;
 		}
-
-		dp->save_node = node;
-
-		/* config sg */
-		sg_dma_address(dp->sg) = node->phyaddr;
-		sg_dma_len(dp->sg) = node->size;
-		dp->sg_len = 1;
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
 								  dp->sg,
@@ -484,8 +582,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 								  dp->dma_config.direction,
 								  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
-			put_free_dsp_node(dp, node);
-			dp->save_node = NULL;
+			while (dp->sg_len-- || !pop_back_dma_node_to_free_head(dp));
 			printk("device_prep_slave_sg failed %d\n", __LINE__);
 			return -EFAULT;
 		}
@@ -507,9 +604,10 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp ,
 				   enum dma_data_direction direction)
 {
 	dp->is_trans = true;
-
 	dma_async_issue_pending(dp->dma_chan);
+
 	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer) {
+		atomic_set(&dp->watchdog_avail,0);
 #ifdef CONFIG_HIGH_RES_TIMERS
 		hrtimer_start(&dp->transfer_watchdog,
 				ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
@@ -517,7 +615,17 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp ,
 		mod_timer(&dp->transfer_watchdog,
 			  jiffies+msecs_to_jiffies(dp->watchdog_mdelay));
 #endif
+	}
+
+	if (direction == DMA_FROM_DEVICE && dp->sg_len >= 3 && dp->mod_timer) {
 		atomic_set(&dp->watchdog_avail,0);
+#ifdef CONFIG_HIGH_RES_TIMERS
+		hrtimer_start(&dp->transfer_watchdog,
+				ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
+#else
+		mod_timer(&dp->transfer_watchdog,
+			  jiffies+msecs_to_jiffies(dp->watchdog_mdelay));
+#endif
 	}
 }
 
@@ -594,6 +702,48 @@ static void replay_watch_function(unsigned long _dp)
 
 static void do_record_watch_func(struct dsp_pipe *dp)
 {
+	dma_addr_t pdma_addr = 0;
+	struct dma_async_tx_descriptor *desc = NULL;
+	struct dsp_node *node = NULL;
+	uint32_t node_base = 0;
+	int success = 0;
+
+	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail))
+		return;
+
+	node = get_free_dsp_node_info(dp);
+	if (node) {
+		desc = dp->dma_chan->device->device_add_desc(dp->dma_chan,
+							     dp->dma_config.src_addr,
+							     node->phyaddr,
+							     node->size,
+							     dp->dma_config.direction,
+							     0x3 | ((dp->fragsize -1)) << 2);
+		if (!desc) {
+			if (!push_free_node_to_dma(dp)) {
+				printk("UNHAPPEND\n");
+				return;	/*there will not be happen*/
+			} else {
+				success = 1;
+			}
+		} else {
+			success = -1;
+		}
+	}
+
+	pdma_addr = dma_trans_addr(dp,dp->dma_config.direction);
+	node_base = ((unsigned long)pdma_addr & (~(dp->fragsize - 1)));
+#ifdef CONFIG_HIGH_RES_TIMERS
+	hrtimer_start(&dp->transfer_watchdog,
+			ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
+#else
+	mod_timer(&dp->transfer_watchdog,
+			jiffies+msecs_to_jiffies(dp->watchdog_mdelay));
+#endif
+
+	if (put_used_dma_node_use(dp,node_base))
+		if (dp->is_non_block == false)
+			wake_up_interruptible(&dp->wq);
 	return;
 }
 
@@ -619,23 +769,22 @@ static void snd_dma_callback(void *arg)
 	int ret = 0;
 	atomic_set(&dp->watchdog_avail,1);
 
-
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
 		while (!pop_dma_node_to_free(dp)) {
 			atomic_inc(&dp->avialable_couter);
 			available_node++;
 		}
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
-		put_use_dsp_node(dp, dp->save_node,dp->save_node->size);
-		atomic_inc(&dp->avialable_couter);
-		available_node++;
+		while (!pop_dma_node_to_use(dp)) {
+                        atomic_inc(&dp->avialable_couter);
+                        available_node++;
+                }
 	}
 
-	dp->save_node =	NULL;
 	if ((dp->is_non_block == false && available_node) || (atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1)))
 		wake_up_interruptible(&dp->wq);
 
-	/* if device closed, release the dma */
+	/* if dsp closed, release the dma */
 	if (dp->wait_stop_dma == true) {
 		if (dp->dma_chan) {
 			dmaengine_terminate_all(dp->dma_chan);
@@ -650,7 +799,6 @@ static void snd_dma_callback(void *arg)
 		snd_reconfig_dma(dp);
 		dp->need_reconfig_dma = false;
 	}
-
 
 	if (!(ret = snd_prepare_dma_desc(dp))) {
 		snd_start_dma_transfer(dp ,dp->dma_config.direction);
@@ -1352,7 +1500,6 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	/* init others */
 	dp->dma_config.direction = direction;
 	dp->dma_chan = NULL;
-	dp->save_node = NULL;
 	init_waitqueue_head(&dp->wq);
 	dp->is_trans = false;
 	dp->is_used = false;
@@ -1517,6 +1664,12 @@ ssize_t xb_snd_dsp_read(struct file *file,
 		return -EBUSY;
 
 	mutex_lock(&dp->mutex);
+
+	if (dp->is_first_start == true){
+		dp->watchdog_mdelay = (dp->fragsize * 1000) / (dp->samplerate * dp->channels * dp->dma_config.dst_addr_width * 2);
+		if (dp->watchdog_mdelay == 0)
+			dp->watchdog_mdelay = 1;
+	}
 	do {
 		while(1) {
 			if (dp->force_stop_dma) {
