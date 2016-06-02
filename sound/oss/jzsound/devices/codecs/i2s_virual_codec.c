@@ -78,8 +78,11 @@ static int codec_set_replay_channel(int* channel)
 
 static int codec_set_record_channel(int* channel)
 {
-	*channel = (*channel >= 2) + 1;
-
+#ifdef CONFIG_I2S_VIRUAL_AEC_MODE
+        *channel = 2;
+#else
+        *channel = (*channel >= 2) + 1;
+#endif
 	return 0;
 }
 

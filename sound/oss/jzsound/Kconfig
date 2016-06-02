@@ -115,6 +115,12 @@ if JZ_EXTERNAL_CODEC_V13 #external codec
         help
                 Say "Y" to enable virual i2s external codec
 
+	config I2S_VIRUAL_AEC_MODE
+        bool "switch i2s virual codec to AEC mode"
+	depends on I2S_VIRUAL_EXTERNAL_CODEC
+        help
+                Say "Y" to switch i2s virual codec to AEC mode
+
 	config AKM4753_EXTERNAL_CODEC
         bool "akm4753 external codec"
         help
