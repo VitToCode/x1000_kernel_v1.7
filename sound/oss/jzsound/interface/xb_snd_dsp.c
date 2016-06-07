@@ -791,7 +791,7 @@ static void snd_dma_callback(void *arg)
 			dp->is_trans = false;
 		}
 		dp->wait_stop_dma = false;
-		wake_up(&dp->wq);
+		wake_up_interruptible(&dp->wq);
 		return;
 	}
 
@@ -1483,7 +1483,6 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 
 	/* init dsp nodes */
 	for (i = 0; i < dp->fragcnt; i++) {
-//		node = vmalloc(sizeof(struct dsp_node));
 		node = kmalloc(sizeof(struct dsp_node),GFP_KERNEL | __GFP_FINER);
 		if (!node)
 			goto init_pipe_error;
