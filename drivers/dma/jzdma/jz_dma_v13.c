@@ -707,7 +707,8 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	switch (cmd) {
 	case DMA_TERMINATE_ALL:
 		if (dmac->cyclic & CYCLIC_ACTIVE) {
-			dmac->cyclic = 0;		/*for alsa audio*/
+			dmac->cyclic = 0;/*for alsa audio*/
+			clear_bit(0, dmac->iomem + CH_DCM);
 			return -EPIPE;
 		} else {
 			jzdma_terminate_all(chan);
