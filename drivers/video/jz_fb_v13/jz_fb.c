@@ -640,7 +640,30 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	if(pdata->bpp / pdata->smart_config.bus_width != 1 ) {
 		int tmp = reg_read(jzfb, SLCDC_CFG_NEW);
 		tmp &= ~(SMART_LCD_DWIDTH_MASK); //mask the 8~9bit
-		tmp |=  (pdata->bpp / pdata->smart_config.bus_width)  == 2 ? SMART_LCD_NEW_DTIMES_TWICE : SMART_LCD_NEW_DTIMES_THICE;
+
+		if (pdata->smart_config.datatx_type_serial
+		    && pdata->smart_config.cmdtx_type_serial) {
+			tmp |= SMART_LCD_NEW_DTIMES_ONCE;
+			switch (pdata->bpp) {
+			case 8:
+				tmp |= SMART_LCD_NEW_DWIDTH_8_BIT;
+				break;
+			case 16:
+				tmp |= SMART_LCD_NEW_DWIDTH_16_BIT;
+				break;
+			case 18:
+			case 24:
+				tmp |= SMART_LCD_NEW_DWIDTH_24_BIT;
+				break;
+			default:
+				dev_err(jzfb->dev, "%s: Don't support %d bpp\n", __func__, pdata->bpp);
+				break;
+			}
+		} else {
+			tmp |=  ((pdata->bpp + pdata->smart_config.bus_width - 1) / pdata->smart_config.bus_width)  == 2 ?
+				SMART_LCD_NEW_DTIMES_TWICE : SMART_LCD_NEW_DTIMES_THICE;
+		}
+
 		reg_write(jzfb, SLCDC_CFG_NEW, tmp);
 		dev_dbg(jzfb->dev, "the slcd  slcd_cfg_new is %08x\n", tmp);
 	}

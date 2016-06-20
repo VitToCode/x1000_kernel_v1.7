@@ -158,6 +158,12 @@
 #define GPIO_LCD_PWM    GPIO_PC(25)
 #endif
 
+#ifdef CONFIG_LCD_XRM177A2001
+#define GPIO_LCD_CS     GPIO_PB(18)
+#define GPIO_LCD_RD     GPIO_PB(16)
+#define GPIO_LCD_RST    GPIO_PD(5)
+#endif
+
 #define GPIO_EFUSE_VDDQ		GPIO_PB(27)	/* EFUSE must be -ENODEV or a gpio */
 
 /* PMU RN5T567 */

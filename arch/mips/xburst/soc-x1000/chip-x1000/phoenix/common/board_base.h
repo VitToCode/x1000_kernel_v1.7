@@ -119,4 +119,7 @@ extern struct platform_device truly_tft240240_device;
 #ifdef CONFIG_LCD_KFM701A21_1A
 extern struct platform_device kfm701a21_1a_device;
 #endif
+#ifdef CONFIG_LCD_XRM177A2001
+extern struct platform_device xrm177a2001_device;
+#endif
 #endif

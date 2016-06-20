@@ -148,6 +148,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&kfm701a21_1a_device,0,0),
 #endif
 
+#ifdef CONFIG_LCD_XRM177A2001
+	DEF_DEVICE(&xrm177a2001_device,0,0),
+#endif
+
 #ifdef CONFIG_XBURST_DMAC_V13
 	DEF_DEVICE(&jz_pdma_device, 0, 0),
 #endif

@@ -91,6 +91,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
     DMIC1_PORTB,
 #endif
 
+#ifdef CONFIG_LCD_V13_SLCD_SERIAL
+	SLCDC_PORTAB_SERIAL,
+#endif
 #ifdef CONFIG_LCD_V13_SLCD_8BIT
 	SLCDC_PORTAB_8BIT,
 #endif

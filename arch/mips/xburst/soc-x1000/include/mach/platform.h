@@ -67,6 +67,10 @@
         { .name = "slcd", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x12 << 16, }
 #endif
 
+#define SLCDC_PORTAB_SERIAL						\
+	{ .name = "slcd", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1 << 15, }, \
+        { .name = "slcd", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x12 << 16, }
+
 #define SLCDC_PORTAB_9BIT						\
 	{ .name = "slcd", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x1ff, }, \
         { .name = "slcd", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x1a << 16, }

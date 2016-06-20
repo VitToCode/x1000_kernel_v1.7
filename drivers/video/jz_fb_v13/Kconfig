@@ -14,6 +14,11 @@ choice
 	prompt "set lcd gpio"
 	default LCD_GPIO_FUNC0_24BIT
 
+config LCD_V13_SLCD_SERIAL
+	bool "lcd v13 serial slcd"
+	help
+	 set lcd gpio function1 only for serial smart panel
+
 config LCD_V13_SLCD_8BIT
 	bool "lcd v13  8bit slcd"
 	help
