@@ -30,7 +30,7 @@
 
 #define MIC_SATE            96000
 #define MIC_CH              2
-#define SPK_SATE            16000
+#define SPK_SATE            48000
 #define SPK_CH              2
 
 
