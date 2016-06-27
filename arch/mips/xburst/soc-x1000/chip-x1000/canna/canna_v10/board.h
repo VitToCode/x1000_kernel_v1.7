@@ -84,6 +84,19 @@
 #define GPIO_AKM4345_CDTI	-1
 #define GPIO_AKM4345_CDTO	-1
 #endif
+
+#ifdef CONFIG_AKM4951_EXTERNAL_CODEC
+#define GPIO_AKM4951_PDN                -1	       /* AKM4951 PDN pin */
+#define GPIO_AKM4951_SPEAKER_EN         GPIO_PD(2)       /* amp shutdown pin */
+#define GPIO_AKM4951_SPEAKER_EN_LEVEL   1
+#define GPIO_AKM4951_AMP_POWER_EN       -1              /* amp power enable pin */
+#define GPIO_AKM4951_AMP_POWER_EN_LEVEL -1
+#define GPIO_AKM4951_LINEIN_DETECT          GPIO_PC(25)   /*linein detect gpio*/
+#define GPIO_AKM4951_LINEIN_INSERT_LEVEL    0
+#define GPIO_AKM4951_HP_DETECT          -1              /*hp detect gpio*/
+#define GPIO_AKM4951_HP_INSERT_LEVEL    -1
+#endif
+
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO LCD START****************************** */
@@ -113,8 +126,8 @@
 #endif
 
 #ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
-#define GPIO_I2C1_SDA		-1
-#define GPIO_I2C1_SCK		-1
+#define GPIO_I2C1_SDA           GPIO_PB(25)
+#define GPIO_I2C1_SCK           GPIO_PC(21)
 #endif
 
 #endif /* CONFIG_I2C_GPIO */
