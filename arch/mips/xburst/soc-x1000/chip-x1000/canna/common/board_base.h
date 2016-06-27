@@ -114,6 +114,9 @@ extern struct jzfb_platform_data jzfb_pdata;
 #ifdef CONFIG_LCD_XRM2002903
 extern struct platform_device xrm2002903_device;
 #endif
+#ifdef CONFIG_LCD_FRD240A3602B
+extern struct platform_device frd240a3602b_device;
+#endif
 /* end of LCD driver */
 
 #endif

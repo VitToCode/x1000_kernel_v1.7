@@ -161,6 +161,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_LCD_XRM2002903
 	DEF_DEVICE(&xrm2002903_device, 0, 0),
 #endif
+
+#ifdef CONFIG_LCD_FRD240A3602B
+	DEF_DEVICE(&frd240a3602b_device, 0, 0),
+#endif
 /* end of LCD driver */
 
 #ifdef CONFIG_XBURST_DMAC_V13
