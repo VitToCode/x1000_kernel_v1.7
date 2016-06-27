@@ -107,6 +107,7 @@
 //#define GPIO_BL_PWR_EN  GPIO_PC(24)
 #define GPIO_LCD_PWM    GPIO_PC(24)
 #endif
+
 #ifdef  CONFIG_LCD_FRD240A3602B
 #define GPIO_LCD_RD     -1
 #define GPIO_LCD_CS     GPIO_PB(18)
@@ -114,6 +115,15 @@
 //#define GPIO_BL_PWR_EN  GPIO_PC(24)
 #define GPIO_LCD_PWM    GPIO_PC(24)
 #endif
+
+#ifdef  CONFIG_LCD_FRD20024N
+#define GPIO_LCD_RD     -1
+#define GPIO_LCD_CS     GPIO_PB(18)
+#define GPIO_LCD_RST    GPIO_PB(19)
+//#define GPIO_BL_PWR_EN  GPIO_PC(24)
+#define GPIO_LCD_PWM    GPIO_PC(24)
+#endif
+
 /* ****************************GPIO LCD END******************************** */
 
 #define GPIO_EFUSE_VDDQ			GPIO_PC(27)	/* EFUSE must be -ENODEV or a gpio */
