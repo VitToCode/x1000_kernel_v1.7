@@ -107,6 +107,60 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
         },
 
 #endif
+#ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
+#ifdef GPIO_VOLUME_UP
+	{
+			.gpio							= GPIO_VOLUME_UP,
+			.code = {
+					.shortpress_code		= KEY_F6,
+					.longpress_code 		= KEY_RESERVED,
+			},
+			.desc						= "doss add gpio key1",
+			.active_low 					= ACTIVE_LOW_F6,
+			.longpress_interval 				= 0,
+			.debounce_interval				= 2,
+	},
+#endif
+#ifdef GPIO_VOLUME_DOWN
+	{
+			.gpio							= GPIO_VOLUME_DOWN,
+			.code = {
+					.shortpress_code		= KEY_F7,
+					.longpress_code 		= KEY_RESERVED,
+			},
+			.desc						= "doss add gpio key2",
+			.active_low 					= ACTIVE_LOW_F7,
+			.longpress_interval 				= 0,
+			.debounce_interval				= 2,
+	},
+#endif
+#ifdef GPIO_VOICE
+	{
+			.gpio							= GPIO_VOICE,
+			.code = {
+					.shortpress_code		= KEY_F8,
+					.longpress_code 		= KEY_RESERVED,
+			},
+			.desc						= "doss add gpio key3",
+			.active_low 					= ACTIVE_LOW_F8,
+			.longpress_interval 				= 0,
+			.debounce_interval				= 2,
+	},
+#endif
+#ifndef GPIO_PLAY_PAUSE
+	{
+			.gpio							= GPIO_PLAY_PAUSE,
+			.code = {
+					.shortpress_code		= KEY_F9,
+					.longpress_code 		= KEY_RESERVED,
+			},
+			.desc						= "doss add gpio key4",
+			.active_low 					= ACTIVE_LOW_F9,
+			.longpress_interval 				= 0,
+			.debounce_interval				= 2,
+	},
+#endif
+#endif
 };
 
 static struct jz_gpio_keys_platform_data board_longbutton_data = {

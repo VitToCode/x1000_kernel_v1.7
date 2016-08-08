@@ -40,6 +40,16 @@
 #define ACTIVE_LOW_POWERDOWN 	1
 #define ACTIVE_LOW_F4 		1
 #define ACTIVE_LOW_F5 		1
+#ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
+#define GPIO_VOLUME_UP			GPIO_PD(3)
+#define GPIO_VOLUME_DOWN		GPIO_PD(4)
+#define GPIO_VOICE				GPIO_PD(5)
+#define GPIO_PLAY_PAUSE		GPIO_PD(3)
+#define ACTIVE_LOW_F6		1
+#define ACTIVE_LOW_F7		1
+#define ACTIVE_LOW_F8		1
+#define ACTIVE_LOW_F9		1
+#endif
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
@@ -65,7 +75,7 @@
 
 #define GPIO_HP_DETECT  	-1      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    -1
-#define GPIO_LINEIN_DETECT          GPIO_PD(3)      /*linein detect gpio*/
+#define GPIO_LINEIN_DETECT          -1 //GPIO_PD(3)      /*linein detect gpio*/
 #define GPIO_LINEIN_INSERT_LEVEL    0
 #define GPIO_MIC_SELECT     	-1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
