@@ -68,8 +68,6 @@ int frd240a3602b_power_init(struct lcd_device *ld)
         }
     }
     lcd_power.inited = 1;
-
-	printk("--------------1-----------\n\n");
 	
     return 0;
 }
@@ -84,8 +82,6 @@ int frd240a3602b_power_reset(struct lcd_device *ld)
 	mdelay(500);
 	gpio_direction_output(GPIO_LCD_RST, 1);
 	mdelay(520);
-
-	printk("--------------2-----------\n\n");
 	
 	return 0;
 }
@@ -112,8 +108,6 @@ int frd240a3602b_power_on(struct lcd_device *ld, int enable)
 		gpio_direction_output(GPIO_LCD_RST, 0);
 		slcd_inited = 0;
 	}
-
-	printk("--------------3-----------\n\n");
 	
 	return 0;
 }

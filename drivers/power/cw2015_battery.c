@@ -631,7 +631,11 @@ static int cw_dc_update_online(struct cw_battery *cw_bat)
 
 static int get_usb_charge_state(struct cw_battery *cw_bat)
 {
+#if 0
 	return gpio_get_value(cw_bat->plat_data->chg_ok_pin) == BAT_MODE ? 1 : 0;
+#else
+	return 1;
+#endif
 }
 
 static int cw_usb_update_online(struct cw_battery *cw_bat)
@@ -741,6 +745,8 @@ static int cw_battery_get_property(struct power_supply *psy,
 		case POWER_SUPPLY_PROP_TECHNOLOGY:
 			val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 			break;
+		case POWER_SUPPLY_PROP_ONLINE:
+			val->intval = gpio_get_value(cw_bat->plat_data->usb_dete_pin) == GPIO_LOW;
 		default:
 			break;
 	}
@@ -755,6 +761,7 @@ static enum power_supply_property cw_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
+	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static int cw_bat_gpio_init(int gpio_pin)
@@ -871,11 +878,14 @@ static int cw_bat_probe(struct i2c_client *client, const struct i2c_device_id *i
 		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init bat_low_pin error\n");
 		return ret;
 	}
+
+	#if 0
 	ret = cw_bat_gpio_init(cw_bat->plat_data->chg_ok_pin);
 	if (ret) {
 		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init chg_ok_pin error\n");
 		return ret;
 	}
+	#endif
 
 	cw_bat->client = client;
 

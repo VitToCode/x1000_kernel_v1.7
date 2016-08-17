@@ -60,9 +60,7 @@ static struct lcd_ops xrm2002903_ops = {
 };
 
 static int __devinit xrm2002903_probe(struct platform_device *pdev)
-{
-	printk("---------xrm2002903_probe-----------\n\n");
-	
+{	
 	int ret;
 	struct xrm2002903_data *dev;
 

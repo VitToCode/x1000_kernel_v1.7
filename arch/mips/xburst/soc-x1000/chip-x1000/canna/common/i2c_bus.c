@@ -48,11 +48,11 @@ static unsigned char config_info[SIZE_BATINFO] = {
 };
 
 static struct cw_bat_platform_data cw_bat_platdata = {
-	.bat_low_pin = GPIO_PB(19),
+	.bat_low_pin = GPIO_PC(25),
 	.bat_low_level = GPIO_LOW,
-	.chg_ok_pin = GPIO_PD(4),
+	//.chg_ok_pin = GPIO_PD(4),
 	.chg_ok_level = GPIO_HIGH,
-	.usb_dete_pin = GPIO_USB_DETE,
+	.usb_dete_pin = GPIO_PB(16),
 	.usb_dete_level = GPIO_LOW,
 	.is_usb_charge = 1,
 	.is_dc_charge = 0,
