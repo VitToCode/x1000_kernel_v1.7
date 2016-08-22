@@ -887,6 +887,12 @@ static int cw_bat_probe(struct i2c_client *client, const struct i2c_device_id *i
 	}
 	#endif
 
+	ret = cw_bat_gpio_init(cw_bat->plat_data->usb_dete_pin);
+	if (ret) {
+		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init usb_dete_pin error\n");
+		return ret;
+	}
+
 	cw_bat->client = client;
 
 	do {
