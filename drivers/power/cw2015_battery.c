@@ -457,7 +457,6 @@ static int cw_get_capacity(struct cw_battery *cw_bat)
 		if_quickstart = 0;
 	}
 
-#if 0
 	if (cw_bat->plat_data->chg_ok_pin != INVALID_GPIO) {
 		if(gpio_get_value(cw_bat->plat_data->chg_ok_pin) != cw_bat->plat_data->chg_ok_level) {
 			if (cw_capacity == 100)
@@ -467,7 +466,6 @@ static int cw_get_capacity(struct cw_battery *cw_bat)
 				cw_capacity = 100;
 		}
 	}
-#endif
 
 #ifdef SYSTEM_SHUTDOWN_VOLTAGE
 	if ((cw_bat->charger_mode == 0) && (cw_capacity <= 20) && (cw_bat->voltage <= SYSTEM_SHUTDOWN_VOLTAGE)) {
@@ -631,11 +629,7 @@ static int cw_dc_update_online(struct cw_battery *cw_bat)
 
 static int get_usb_charge_state(struct cw_battery *cw_bat)
 {
-#if 0
 	return gpio_get_value(cw_bat->plat_data->chg_ok_pin) == BAT_MODE ? 1 : 0;
-#else
-	return 1;
-#endif
 }
 
 static int cw_usb_update_online(struct cw_battery *cw_bat)
@@ -747,6 +741,7 @@ static int cw_battery_get_property(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_PROP_ONLINE:
 			val->intval = gpio_get_value(cw_bat->plat_data->usb_dete_pin) == GPIO_LOW;
+			break;
 		default:
 			break;
 	}
@@ -796,7 +791,7 @@ static void bat_low_detect_do_wakeup(struct work_struct *work)
 
 	delay_work = container_of(work, struct delayed_work, work);
 	cw_bat = container_of(delay_work, struct cw_battery, bat_low_wakeup_work);
-	cw_get_alt(cw_bat);
+	//cw_get_alt(cw_bat);
 	enable_irq(cw_bat->irq);
 }
 
@@ -873,25 +868,26 @@ static int cw_bat_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	i2c_set_clientdata(client, cw_bat);
 	cw_bat->plat_data = client->dev.platform_data;
+
 	ret = cw_bat_gpio_init(cw_bat->plat_data->bat_low_pin);
 	if (ret) {
 		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init bat_low_pin error\n");
 		return ret;
 	}
 
-	#if 0
 	ret = cw_bat_gpio_init(cw_bat->plat_data->chg_ok_pin);
 	if (ret) {
 		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init chg_ok_pin error\n");
 		return ret;
 	}
-	#endif
 
+	#if 0
 	ret = cw_bat_gpio_init(cw_bat->plat_data->usb_dete_pin);
 	if (ret) {
 		dev_err(&cw_bat->client->dev, "cw_bat_gpio_init usb_dete_pin error\n");
 		return ret;
 	}
+	#endif
 
 	cw_bat->client = client;
 
