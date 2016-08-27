@@ -42,9 +42,9 @@
 #define ACTIVE_LOW_F5 		1
 #ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
 #define GPIO_VOLUME_UP			GPIO_PD(3)
-#define GPIO_VOLUME_DOWN		GPIO_PD(4)
-#define GPIO_VOICE				GPIO_PD(5)
-#define GPIO_PLAY_PAUSE		GPIO_PD(3)
+#define GPIO_VOLUME_DOWN		GPIO_PB(5)
+#define GPIO_VOICE				GPIO_PD(4)
+#define GPIO_PLAY_PAUSE			GPIO_PD(5)
 #define ACTIVE_LOW_F6		1
 #define ACTIVE_LOW_F7		1
 #define ACTIVE_LOW_F8		1
@@ -65,7 +65,7 @@
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
-#define GPIO_SPEAKER_EN    	GPIO_PC(25)         /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN    	GPIO_PD(25)         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   0
 #define GPIO_AMP_POWER_EN	-1	/* amp power enable pin */
 #define GPIO_AMP_POWER_EN_LEVEL	-1
@@ -101,7 +101,7 @@
 #define GPIO_AKM4951_SPEAKER_EN_LEVEL   1
 #define GPIO_AKM4951_AMP_POWER_EN       -1              /* amp power enable pin */
 #define GPIO_AKM4951_AMP_POWER_EN_LEVEL -1
-#define GPIO_AKM4951_LINEIN_DETECT          GPIO_PC(25)   /*linein detect gpio*/
+#define GPIO_AKM4951_LINEIN_DETECT          -1//GPIO_PC(25)   /*linein detect gpio*/
 #define GPIO_AKM4951_LINEIN_INSERT_LEVEL    0
 #define GPIO_AKM4951_HP_DETECT          -1              /*hp detect gpio*/
 #define GPIO_AKM4951_HP_INSERT_LEVEL    -1

@@ -112,10 +112,10 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 	{
 			.gpio							= GPIO_VOLUME_UP,
 			.code = {
-					.shortpress_code		= KEY_F6,
+					.shortpress_code		= KEY_VOLUMEUP,
 					.longpress_code 		= KEY_RESERVED,
 			},
-			.desc						= "doss add gpio key1",
+			.desc						= "music volume up",
 			.active_low 					= ACTIVE_LOW_F6,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
@@ -125,10 +125,10 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 	{
 			.gpio							= GPIO_VOLUME_DOWN,
 			.code = {
-					.shortpress_code		= KEY_F7,
+					.shortpress_code		= KEY_VOLUMEDOWN,
 					.longpress_code 		= KEY_RESERVED,
 			},
-			.desc						= "doss add gpio key2",
+			.desc						= "music volume down",
 			.active_low 					= ACTIVE_LOW_F7,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
@@ -138,23 +138,23 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 	{
 			.gpio							= GPIO_VOICE,
 			.code = {
-					.shortpress_code		= KEY_F8,
+					.shortpress_code		= KEY_RECORD,
 					.longpress_code 		= KEY_RESERVED,
 			},
-			.desc						= "doss add gpio key3",
+			.desc						= "speech recognition",
 			.active_low 					= ACTIVE_LOW_F8,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
 	},
 #endif
-#ifndef GPIO_PLAY_PAUSE
+#ifdef GPIO_PLAY_PAUSE
 	{
 			.gpio							= GPIO_PLAY_PAUSE,
 			.code = {
-					.shortpress_code		= KEY_F9,
+					.shortpress_code		= KEY_PLAYPAUSE,
 					.longpress_code 		= KEY_RESERVED,
 			},
-			.desc						= "doss add gpio key4",
+			.desc						= "music play and pause",
 			.active_low 					= ACTIVE_LOW_F9,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
