@@ -45,6 +45,8 @@
 #ifdef CONFIG_LOGO_BMP
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 #include "logo_bmp_aslmom.h"
+#elif defined (CONFIG_PRODUCT_X1000_CANNA)
+#include "logo_bmp_canna.h"
 #else
 #include "logo_bmp.h"
 #endif
