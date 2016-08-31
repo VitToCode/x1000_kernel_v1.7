@@ -593,6 +593,17 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	if (pdata->rep)
 		__set_bit(EV_REP, input->evbit);
 
+#ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
+	error = gpio_request(GPIO_LIGHT_CONTROL, "light control");
+	if (error < 0) 
+		dev_err(dev, "failed to request GPIO %d, error %d\n",
+			GPIO_LIGHT_CONTROL, error);
+
+	if (gpio_direction_output(GPIO_LIGHT_CONTROL, 0))
+		dev_err(dev, "failed to gpio_direction_output gpio %d\n",
+			GPIO_LIGHT_CONTROL);
+#endif
+
 	for (i = 0; i < pdata->nbuttons; i++) {
 		struct jz_gpio_keys_button *button = &pdata->buttons[i];
 		struct gpio_button_data *bdata = &ddata->data[i];

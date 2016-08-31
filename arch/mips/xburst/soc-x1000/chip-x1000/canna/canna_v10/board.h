@@ -36,7 +36,9 @@
 /* ****************************GPIO KEY START******************************** */
 #define GPIO_POWERDOWN 		GPIO_PB(31)
 #define GPIO_BOOT_SEL0		GPIO_PB(28)
+#ifndef CONFIG_DOSS_WB38_INDEPENDENT_KEY
 #define GPIO_BOOT_SEL1		GPIO_PB(29)
+#endif
 #define ACTIVE_LOW_POWERDOWN 	1
 #define ACTIVE_LOW_F4 		1
 #define ACTIVE_LOW_F5 		1
@@ -44,7 +46,8 @@
 #define GPIO_VOLUME_UP			GPIO_PB(5)
 #define GPIO_VOLUME_DOWN		GPIO_PD(3)
 #define GPIO_VOICE				GPIO_PD(4)
-#define GPIO_PLAY_PAUSE			GPIO_PD(5)
+#define GPIO_PLAY_PAUSE		GPIO_PD(5)
+#define GPIO_LIGHT_CONTROL		GPIO_PB(29)
 #define ACTIVE_LOW_F6		0
 #define ACTIVE_LOW_F7		0
 #define ACTIVE_LOW_F8		0
@@ -53,7 +56,7 @@
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
+//#define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE
 #define GPIO_USB_DETE           GPIO_PB(8) /*GPIO_PB(8)*/
 #define GPIO_USB_DETE_LEVEL     LOW_ENABLE
