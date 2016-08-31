@@ -47,7 +47,7 @@
 #define GPIO_VOLUME_DOWN		GPIO_PD(3)
 #define GPIO_VOICE				GPIO_PD(4)
 #define GPIO_PLAY_PAUSE		GPIO_PD(5)
-#define GPIO_LIGHT_CONTROL		GPIO_PB(29)
+
 #define ACTIVE_LOW_F6		0
 #define ACTIVE_LOW_F7		0
 #define ACTIVE_LOW_F8		0

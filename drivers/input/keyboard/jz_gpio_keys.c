@@ -594,6 +594,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 		__set_bit(EV_REP, input->evbit);
 
 #ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
+#define GPIO_LIGHT_CONTROL		GPIO_PB(29)
 	error = gpio_request(GPIO_LIGHT_CONTROL, "light control");
 	if (error < 0) 
 		dev_err(dev, "failed to request GPIO %d, error %d\n",
