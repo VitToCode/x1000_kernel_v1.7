@@ -216,6 +216,8 @@ enum snd_dsp_command {
 	/**
 	 * @SND_DSP_IS_REPLAY, is to check if i2s is replaying now.
 	**/
+    /* wait for previous i2s_work_queue finish */
+    SND_DSP_FLUSH_WORK,
 	SND_DSP_IS_REPLAY,
 };
 

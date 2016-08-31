@@ -257,12 +257,14 @@ static int codec_set_replay_rate(unsigned long *rate)
 
 	user_replay_rate = *rate;
 	gpio_disable_spk_en();
-	msleep(50);
+	//msleep(50);
+	mdelay(50);
 	akm4951_i2c_read_reg(0x06, &data, 1);
 	data &= 0xf0;
 	data |= reg[i];
 	akm4951_i2c_write_regs(0x06, &data, 1);
-	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
+	//msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
+	mdelay(50);
 	if (user_replay_volume)
 		gpio_enable_spk_en();
 	return 0;

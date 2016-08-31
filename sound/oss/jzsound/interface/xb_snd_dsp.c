@@ -1668,6 +1668,10 @@ ssize_t xb_snd_dsp_read(struct file *file,
 		dp->watchdog_mdelay = (dp->fragsize * 1000) / (dp->samplerate * dp->channels * dp->dma_config.dst_addr_width * 2);
 		if (dp->watchdog_mdelay == 0)
 			dp->watchdog_mdelay = 1;
+
+      		if (ddata && ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_FLUSH_WORK, 0);
+       		}
 	}
 	do {
 		while(1) {
@@ -1862,6 +1866,10 @@ ssize_t xb_snd_dsp_write(struct file *file,
                         if (dp->watchdog_mdelay == 0)
                                 dp->watchdog_mdelay = 1;
 			dp->is_first_start = false;
+
+			if (ddata && ddata->dev_ioctl_2) {
+					ddata->dev_ioctl_2(ddata, SND_DSP_FLUSH_WORK, 0);
+			}
 		}
 
 #ifdef DEBUG_REPLAY
