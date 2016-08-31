@@ -113,11 +113,11 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 			.gpio							= GPIO_VOLUME_UP,
 			.code = {
 					.shortpress_code		= KEY_VOLUMEUP,
-					.longpress_code 		= KEY_RESERVED,
+					.longpress_code 		= KEY_NEXTSONG,
 			},
 			.desc						= "music volume up",
 			.active_low 					= ACTIVE_LOW_F6,
-			.longpress_interval 				= 0,
+			.longpress_interval 				= 1800,
 			.debounce_interval				= 2,
 	},
 #endif
@@ -126,11 +126,11 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 			.gpio							= GPIO_VOLUME_DOWN,
 			.code = {
 					.shortpress_code		= KEY_VOLUMEDOWN,
-					.longpress_code 		= KEY_RESERVED,
+					.longpress_code 		= KEY_PREVIOUSSONG,
 			},
 			.desc						= "music volume down",
 			.active_low 					= ACTIVE_LOW_F7,
-			.longpress_interval 				= 0,
+			.longpress_interval 				= 1800,
 			.debounce_interval				= 2,
 	},
 #endif

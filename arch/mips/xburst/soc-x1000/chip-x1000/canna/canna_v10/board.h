@@ -41,14 +41,14 @@
 #define ACTIVE_LOW_F4 		1
 #define ACTIVE_LOW_F5 		1
 #ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
-#define GPIO_VOLUME_UP			GPIO_PD(3)
-#define GPIO_VOLUME_DOWN		GPIO_PB(5)
+#define GPIO_VOLUME_UP			GPIO_PB(5)
+#define GPIO_VOLUME_DOWN		GPIO_PD(3)
 #define GPIO_VOICE				GPIO_PD(4)
 #define GPIO_PLAY_PAUSE			GPIO_PD(5)
-#define ACTIVE_LOW_F6		1
-#define ACTIVE_LOW_F7		1
-#define ACTIVE_LOW_F8		1
-#define ACTIVE_LOW_F9		1
+#define ACTIVE_LOW_F6		0
+#define ACTIVE_LOW_F7		0
+#define ACTIVE_LOW_F8		0
+#define ACTIVE_LOW_F9		0
 #endif
 /* ****************************GPIO KEY END******************************** */
 
