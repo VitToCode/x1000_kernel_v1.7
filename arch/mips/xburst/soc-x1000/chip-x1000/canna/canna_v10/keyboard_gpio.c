@@ -80,34 +80,20 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
                 .debounce_interval              = 2,
         },
 #endif
+#ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
 #ifdef GPIO_BOOT_SEL0
 	{
                 .gpio                           = GPIO_BOOT_SEL0,
                 .code = {
-                        .shortpress_code        = KEY_F4,
-                        .longpress_code         = KEY_RESERVED,
+                        .shortpress_code        = KEY_MODE,
+                        .longpress_code         = KEY_F1,
                 },
                 .desc                           = "music Shortcut key 2",
                 .active_low                     = ACTIVE_LOW_F4,
-                .longpress_interval             = 0,
+                .longpress_interval             = 1800,
                 .debounce_interval              = 2,
         },
 #endif
-#ifdef GPIO_BOOT_SEL1
-	{
-                .gpio                           = GPIO_BOOT_SEL1,
-                .code = {
-                        .shortpress_code        = KEY_F5,
-                        .longpress_code         = KEY_RESERVED,
-                },
-                .desc                           = "music Shortcut key 3",
-                .active_low                     = ACTIVE_LOW_F5,
-                .longpress_interval             = 0,
-                .debounce_interval              = 2,
-        },
-
-#endif
-#ifdef CONFIG_DOSS_WB38_INDEPENDENT_KEY
 #ifdef GPIO_VOLUME_UP
 	{
 			.gpio							= GPIO_VOLUME_UP,
@@ -116,7 +102,7 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 					.longpress_code 		= KEY_NEXTSONG,
 			},
 			.desc						= "music volume up",
-			.active_low 					= ACTIVE_LOW_F6,
+			.active_low 					= ACTIVE_LOW_VOLUMEUP,
 			.longpress_interval 				= 1800,
 			.debounce_interval				= 2,
 	},
@@ -129,7 +115,7 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 					.longpress_code 		= KEY_PREVIOUSSONG,
 			},
 			.desc						= "music volume down",
-			.active_low 					= ACTIVE_LOW_F7,
+			.active_low 					= ACTIVE_LOW_VOLUMEDOWN,
 			.longpress_interval 				= 1800,
 			.debounce_interval				= 2,
 	},
@@ -142,7 +128,7 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 					.longpress_code 		= KEY_RESERVED,
 			},
 			.desc						= "speech recognition",
-			.active_low 					= ACTIVE_LOW_F8,
+			.active_low 					= ACTIVE_LOW_VOICE,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
 	},
@@ -155,7 +141,7 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 					.longpress_code 		= KEY_RESERVED,
 			},
 			.desc						= "music play and pause",
-			.active_low 					= ACTIVE_LOW_F9,
+			.active_low 					= ACTIVE_LOW_PLAYPAUSE,
 			.longpress_interval 				= 0,
 			.debounce_interval				= 2,
 	},
