@@ -62,7 +62,7 @@ static void codec_get_format_cap(unsigned long *format)
 
 /* Below is akm4951 registers value from 0x02 to 0x4F */
 unsigned char akm4951_registers[][2] = {
-#if 0
+#if 1
 // AKM_Register AK4951 80
 { 0x00 ,0xC7 },
 { 0x01 ,0xBC },
