@@ -533,7 +533,7 @@ static int dump_codec_regs(void)
 
 static int codec_set_replay_volume(int *val)
 {
-	char data = 0x0;
+	unsigned char data = 0x0;
 	/* get current volume */
 	if (*val < 0) {
 		*val = user_replay_volume;
@@ -548,7 +548,7 @@ static int codec_set_replay_volume(int *val)
 		data = (100 - *val)*(30+ (100 - *val) /2) /100 + 28;
 #else
 		/* use 0dB ~ -50dB */
-		data = 100 - *val + 24;
+		data = 100 - *val + 44;
 #endif
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
