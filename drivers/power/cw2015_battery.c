@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <linux/power_supply.h>
 
 #define REG_VERSION             0x0
 #define REG_VCELL               0x2
@@ -78,6 +79,7 @@ struct cw_battery {
 
 	int dc_online;
 	int usb_online;
+	int usb_online_bak;
 	int charger_mode;
 	int charger_init_mode;
 	int capacity;
@@ -629,7 +631,7 @@ static int cw_dc_update_online(struct cw_battery *cw_bat)
 
 static int get_usb_charge_state(struct cw_battery *cw_bat)
 {
-	return gpio_get_value(cw_bat->plat_data->chg_ok_pin) == BAT_MODE ? 1 : 0;
+	return gpio_get_value(cw_bat->plat_data->usb_dete_pin) == BAT_MODE ? 1 : 0;
 }
 
 static int cw_usb_update_online(struct cw_battery *cw_bat)
@@ -666,7 +668,6 @@ static int cw_usb_update_online(struct cw_battery *cw_bat)
 		}
 
 	} else if (usb_status == BAT_MODE && cw_bat->usb_online != 0) {
-
 		if (cw_bat->dc_online == 0)
 			cw_bat->charger_mode = BAT_MODE;
 
@@ -679,7 +680,7 @@ static int cw_usb_update_online(struct cw_battery *cw_bat)
 }
 
 static void cw_bat_update_status(struct cw_battery *cw_bat)
-{
+{	
 	if (cw_bat->usb_online || cw_bat->dc_online)
 		cw_bat->status = POWER_SUPPLY_STATUS_CHARGING;
 	else if (cw_bat->usb_online == 0 && gpio_get_value(cw_bat->plat_data->usb_dete_pin) == GPIO_LOW && cw_bat->capacity == 100)
@@ -702,6 +703,11 @@ static void cw_bat_work(struct work_struct *work)
 	cw_bat_update_vol(cw_bat);
 	cw_bat_update_time_to_empty(cw_bat);
 	cw_bat_update_status(cw_bat);
+
+	if (cw_bat->usb_online == cw_bat->usb_online_bak) {
+		cw_bat->usb_online_bak = !cw_bat->usb_online_bak;
+		power_supply_changed(&cw_bat->fg_bat);
+	}
 
 	queue_delayed_work(cw_bat->battery_workqueue, &cw_bat->battery_delay_work, msecs_to_jiffies(1000));
 
@@ -897,7 +903,7 @@ static int cw_bat_probe(struct i2c_client *client, const struct i2c_device_id *i
 	if (ret)
 		return ret;
 
-	cw_bat->fg_bat.name = "fg-bat";
+	cw_bat->fg_bat.name = "battery";
 	cw_bat->fg_bat.type = POWER_SUPPLY_TYPE_BATTERY;
 	cw_bat->fg_bat.properties = cw_battery_properties;
 	cw_bat->fg_bat.num_properties = ARRAY_SIZE(cw_battery_properties);
@@ -916,6 +922,7 @@ static int cw_bat_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	cw_bat->dc_online = 0;
 	cw_bat->usb_online = 0;
+	cw_bat->usb_online_bak = 0;
 	cw_bat->charger_mode = 0;
 	cw_bat->capacity = 1;
 	cw_bat->voltage = 0;
