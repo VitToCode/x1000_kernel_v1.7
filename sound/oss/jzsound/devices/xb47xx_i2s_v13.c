@@ -576,12 +576,14 @@ static void i2s_set_trigger(struct i2s_device * i2s_dev, int mode)
 
 static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 {
+#ifndef CONFIG_AKM4951_WB38_MUTE
 	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
 	unsigned long record_rate = DEFAULT_RECORD_SAMPLERATE;
 	unsigned long replay_format = 16;
 	unsigned long record_format = 16;
 	int replay_channel = DEFAULT_REPLAY_CHANNEL;
 	int record_channel = DEFAULT_RECORD_CHANNEL;
+#endif
 	struct dsp_pipe *dp_other = NULL;
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
@@ -589,20 +591,26 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
+#ifndef CONFIG_AKM4951_WB38_MUTE
 		i2s_set_fmt(i2s_dev, &replay_format,mode);
 		i2s_set_channel(i2s_dev, &replay_channel,mode);
 		i2s_set_rate(i2s_dev, &replay_rate,mode);
+#endif
 		/* just for anti pop if underrun happened when replaying */
 		__i2s_play_lastsample(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
+#ifndef CONFIG_AKM4951_WB38_MUTE
 		i2s_set_fmt(i2s_dev, &record_format,mode);
 		i2s_set_channel(i2s_dev, &record_channel,mode);
 		i2s_set_rate(i2s_dev, &record_rate,mode);
 		i2s_set_filter(i2s_dev, mode,record_channel);
+#endif
 	}
+#ifndef CONFIG_AKM4951_WB38_MUTE
 	i2s_set_trigger(i2s_dev, mode);
+#endif
 
 	if (!dp_other->is_used) {
 		__i2s_select_i2s(i2s_dev);

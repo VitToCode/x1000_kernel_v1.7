@@ -314,7 +314,7 @@ static void gpio_disable_spk_en(void)
 }
 
 static int codec_set_replay_rate(unsigned long *rate)
-{
+{	
 	int i = 0;
 	unsigned char data = 0x0;
 	unsigned long mrate[9] = {
@@ -350,6 +350,7 @@ static int codec_set_replay_rate(unsigned long *rate)
 	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
 	//if (user_replay_volume)
 		//gpio_enable_spk_en();
+	
 	return 0;
 }
 
@@ -672,7 +673,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 		case CODEC_ANTI_POP:
 			if (arg & CODEC_RMODE)
 				break;
-
+#ifndef CONFIG_AKM4951_WB38_MUTE
 			if (user_replay_volume) {
 				gpio_enable_spk_en();
 				mdelay(125);
@@ -681,6 +682,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
 #endif
 			}
+#endif
 			user_replay_state = 1;
 			break;
 
@@ -696,6 +698,16 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 
 		case CODEC_SET_REPLAY_RATE:
 			ret = codec_set_replay_rate((unsigned long*)arg);
+#ifdef CONFIG_AKM4951_WB38_MUTE
+			if (user_replay_volume) {
+				gpio_enable_spk_en();
+				mdelay(135);
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+				/* This is only for aslmom board battery power detection */
+				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
+#endif
+			}
+#endif
 			break;
 
 		case CODEC_SET_RECORD_RATE:
