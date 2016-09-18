@@ -299,7 +299,6 @@ static void gpio_enable_spk_en(void)
 			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
 		}
 	}
-	//mdelay(300);
 }
 
 static void gpio_disable_spk_en(void)
@@ -342,18 +341,15 @@ static int codec_set_replay_rate(unsigned long *rate)
 	}
 
 	user_replay_rate = *rate;
-	gpio_disable_spk_en();
+	//gpio_disable_spk_en();
 	//msleep(50);
-	mdelay(50);
 	akm4951_i2c_read_reg(0x06, &data, 1);
 	data &= 0xf0;
 	data |= reg[i];
 	akm4951_i2c_write_regs(0x06, &data, 1);
-	//msleep(800);            //This delay is to wait for akm4951 i2s clk stable.
-	//mdelay(2000);
-	mdelay(50);
-	if (user_replay_volume)
-		gpio_enable_spk_en();
+	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
+	//if (user_replay_volume)
+		//gpio_enable_spk_en();
 	return 0;
 }
 
@@ -390,8 +386,10 @@ static int codec_set_device(enum snd_device_t device)
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
 			codec_set_replay_rate(&user_replay_rate);
-			if (user_replay_volume && user_replay_state)
+			if (user_replay_volume && user_replay_state) {
 				gpio_enable_spk_en();
+				mdelay(150);
+			}
 			break;
 		case SND_DEVICE_LINEIN_RECORD:
 			user_linein_state = 1;
@@ -413,6 +411,7 @@ static int codec_set_device(enum snd_device_t device)
 			msleep(5);
 			if (user_replay_volume) {
 				gpio_enable_spk_en();
+				mdelay(150);
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
@@ -676,6 +675,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 
 			if (user_replay_volume) {
 				gpio_enable_spk_en();
+				mdelay(125);
 #ifdef CONFIG_PRODUCT_X1000_ASLMOM
 				/* This is only for aslmom board battery power detection */
 				jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_POST_HIBERNATION, NULL);
@@ -696,7 +696,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 
 		case CODEC_SET_REPLAY_RATE:
 			ret = codec_set_replay_rate((unsigned long*)arg);
-			mdelay(150);
 			break;
 
 		case CODEC_SET_RECORD_RATE:
