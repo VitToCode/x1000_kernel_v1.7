@@ -128,11 +128,11 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 			.gpio							= GPIO_VOICE,
 			.code = {
 					.shortpress_code		= KEY_RECORD,
-					.longpress_code 		= KEY_RESERVED,
+					.longpress_code 		= KEY_F4,
 			},
-			.desc						= "speech recognition",
+			.desc						= "stop recognition key",
 			.active_low 					= ACTIVE_LOW_VOICE,
-			.longpress_interval 				= 0,
+			.longpress_interval 				= 2 * 1000,
 			.debounce_interval				= 2,
 	},
 #endif
