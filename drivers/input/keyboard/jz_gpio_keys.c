@@ -59,6 +59,9 @@ struct gpio_keys_drvdata {
 	struct gpio_button_data data[0];
 };
 
+#define GPIO_PLAY_PAUSE 101
+#define GPIO_BOOT_SEL0 60
+
 /*
  * SYSFS interface for enabling/disabling keys and switches:
  *
@@ -339,6 +342,7 @@ static struct attribute_group gpio_keys_attr_group = {
 int combi_flag = 0;
 int count = 0;
 int combi_return_flag = 0;
+int two_key_flag = 0;
 
 static void gpio_keys_report_event(struct gpio_button_data *bdata)
 {
@@ -359,7 +363,8 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 				bdata->presstimer_run = 1;
 			}
 
-			count++;
+			if (GPIO_BOOT_SEL0 == button->gpio || GPIO_PLAY_PAUSE == button->gpio)
+				count++;
 			
 			if (bdata->presstimer_run || bdata->is_longpress) {
 				combi_return_flag = 0;
@@ -379,7 +384,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 			}
 
 			if (count == 4)
-				return 0;
+				return ;
 		}
 
 		count = 0;
@@ -402,16 +407,17 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 			}
 
 			if (bdata->is_combi_press) {
-				if (state) {
-					bdata->presstimer_set = 0;
-					bdata->is_longpress = 0;
+				if (!state) {
 					bdata->combi_timer_set = 0;
 					bdata->is_combi_press = 0;
-
-					input_event(input, type, button->code.key_combi_code, state);
-					input_sync(input);
-					input_event(input, type, button->code.key_combi_code, !state);
+					
+					if (button->lock_interval && !bdata->is_locked) {
+						bdata->is_locked = 1;
+						bdata->lock_jiffies_64 = get_jiffies_64();
+					}
 				}
+
+				input_event(input, type, button->code.key_combi_code, !!state);
 				
 				if (button->lock_interval && !bdata->is_locked) {
 						bdata->is_locked = 1;
@@ -428,8 +434,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 					}
 				}
 
-				if (!combi_return_flag)
-					input_event(input, type, button->code.longpress_code, !!state);
+				input_event(input, type, button->code.longpress_code, !!state);
 			} else {
 				bdata->presstimer_set = 0;
 
@@ -453,7 +458,6 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 
 		if (!bdata->is_locked)
 			input_event(input, type, button->code.shortpress_code, !!state);
-
 		if (button->lock_interval && !bdata->is_locked && !state) {
 			bdata->is_locked = 1;
 			bdata->lock_jiffies_64 = get_jiffies_64();
@@ -493,7 +497,7 @@ static void gpio_keys_timer_press(unsigned long _data)
 {
 	struct gpio_button_data *data = (struct gpio_button_data *)_data;
 	unsigned long flags;
-
+	
 	spin_lock_irqsave(&data->lock, flags);
 	data->presstimer_run = 0;
 	if (data->presstimer_set)
@@ -716,7 +720,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	for (i = 0; i < pdata->nbuttons; i++) {
 		gpio_keys_report_event(&ddata->data[i]);
 		
-		if (60 == pdata->buttons[i].gpio) {
+		if (GPIO_BOOT_SEL0 == pdata->buttons[i].gpio) {
 			ddata->data[i].presstimer_set = 0;
 			ddata->data[i].presstimer_run = 0;
 			ddata->data[i].is_longpress = 0;
