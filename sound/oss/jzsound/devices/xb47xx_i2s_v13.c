@@ -1178,15 +1178,17 @@ static int i2s_init_pipe_2(struct dsp_pipe *dp, enum dma_data_direction directio
 	dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	dp->dma_type = JZDMA_REQ_I2S0;
-	dp->fragsize = FRAGSIZE_L;
-	dp->fragcnt = FRAGCNT_B;
 
 	if (direction == DMA_TO_DEVICE) {
+		dp->fragsize = FRAGSIZE_M;
+		dp->fragcnt = FRAGCNT_H;
 		dp->dma_config.src_maxburst = 64;
 		dp->dma_config.dst_maxburst = 64;
 		dp->dma_config.dst_addr = iobase + AICDR;
 		dp->dma_config.src_addr = 0;
 	} else if (direction == DMA_FROM_DEVICE) {
+		dp->fragsize = FRAGSIZE_M;
+		dp->fragcnt = FRAGCNT_B;
 		dp->dma_config.src_maxburst = 32;
 		dp->dma_config.dst_maxburst = 32;
 		dp->dma_config.src_addr = iobase + AICDR;
